@@ -34,6 +34,8 @@ namespace train_management_system.DAL.Company
         }
 
 
+        #region User
+        // Create New User
         public void SaveUser(User entity)
         {
             try
@@ -63,6 +65,90 @@ namespace train_management_system.DAL.Company
             }
         }
 
+        //Upate User
+        public void UpdateUser(User updatedUser)
+        {
+            try
+            {
+                var existingUser = _companyDbContext.Users.FirstOrDefault(x => x.UserId == updatedUser.UserId);
+
+                if (existingUser == null)
+                {
+                    throw new Exception("User not found.");
+                }
+
+                // Update fields (you can customize this as needed)
+                existingUser.Username = updatedUser.Username;
+                existingUser.Email = updatedUser.Email;
+                existingUser.Username = updatedUser.Username;
+                existingUser.IsActive = updatedUser.IsActive;
+                existingUser.CreatedAt = DateTime.UtcNow;
+
+                _companyDbContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while updating the user.", ex);
+            }
+        }
+
+        //Delete User
+        public void DeleteUser(int userId)
+        {
+            try
+            {
+                var user = _companyDbContext.Users.FirstOrDefault(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    throw new Exception("User not found.");
+                }
+
+                _companyDbContext.Users.Remove(user);
+                _companyDbContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while deleting the user.", ex);
+            }
+        }
+
+        //Get All User
+        public List<User> GetAllUsers()
+        {
+            try
+            {
+                return _companyDbContext.Users.ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving users.", ex);
+            }
+        }
+
+        //Get User By Id
+        public User GetUserById(int userId)
+        {
+            try
+            {
+                var user = _companyDbContext.Users.FirstOrDefault(x => x.UserId == userId);
+
+                if (user == null)
+                {
+                    throw new Exception("User not found.");
+                }
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving the user.", ex);
+            }
+        }
+
+
+
+        #endregion
         #endregion
 
         #region AppConfiguration

@@ -5,27 +5,29 @@ namespace train_management_system.Models.Company;
 
 public partial class Schedule
 {
-    public int ScheduleId { get; set; }
+    public Guid Id { get; set; }
 
-    public int TrainId { get; set; }
+    public Guid RouteId { get; set; }
 
-    public int RouteId { get; set; }
+    public Guid TrainId { get; set; }
 
-    public DateOnly StartDate { get; set; }
+    public Guid? DriverId { get; set; }
 
-    public string Frequency { get; set; } = null!;
+    public TimeOnly DepartureTime { get; set; }
 
-    public bool IsActive { get; set; }
+    public TimeOnly ArrivalTime { get; set; }
 
-    public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public DateOnly Date { get; set; }
 
-    public virtual ICollection<DriverAssignment> DriverAssignments { get; set; } = new List<DriverAssignment>();
+    public string? Frequency { get; set; }
+
+    public string? Status { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
 
     public virtual Route Route { get; set; } = null!;
 
-    public virtual ICollection<Seat> Seats { get; set; } = new List<Seat>();
-
     public virtual Train Train { get; set; } = null!;
-
-    public virtual ICollection<Waitlist> Waitlists { get; set; } = new List<Waitlist>();
 }

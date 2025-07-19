@@ -5,19 +5,31 @@ namespace train_management_system.Models.Company;
 
 public partial class Driver
 {
-    public int DriverId { get; set; }
+    public Guid Id { get; set; }
 
-    public string FirstName { get; set; } = null!;
+    public string? FirstName { get; set; }
 
-    public string LastName { get; set; } = null!;
+    public string? LastName { get; set; }
 
-    public string LicenseNo { get; set; } = null!;
+    public string? Email { get; set; }
 
-    public string? ContactNumber { get; set; }
+    public string? Phone { get; set; }
 
-    public int? ExperienceYrs { get; set; }
+    public string? LicenseNumber { get; set; }
 
-    public decimal? RatingAvg { get; set; }
+    public DateOnly? LicenseExpiry { get; set; }
 
-    public virtual ICollection<DriverAssignment> DriverAssignments { get; set; } = new List<DriverAssignment>();
+    public string? Status { get; set; }
+
+    public int? Experience { get; set; }
+
+    public double? Rating { get; set; }
+
+    public int? TotalTrips { get; set; }
+
+    public string? Availability { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
 }

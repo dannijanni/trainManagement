@@ -5,17 +5,25 @@ namespace train_management_system.Models.Company;
 
 public partial class Payment
 {
-    public int PaymentId { get; set; }
+    public Guid Id { get; set; }
 
-    public int BookingId { get; set; }
+    public Guid? BookingId { get; set; }
 
-    public decimal Amount { get; set; }
+    public decimal? Amount { get; set; }
 
-    public DateTime PaymentDate { get; set; }
+    public string? Method { get; set; }
 
-    public string PaymentType { get; set; } = null!;
+    public string? Status { get; set; }
 
-    public string? DetailsJson { get; set; }
+    public string? TransactionId { get; set; }
 
-    public virtual Booking Booking { get; set; } = null!;
+    public DateTime? PaymentDate { get; set; }
+
+    public string? ProcessedBy { get; set; }
+
+    public string? CounterLocation { get; set; }
+
+    public string? Notes { get; set; }
+
+    public virtual Booking? Booking { get; set; }
 }

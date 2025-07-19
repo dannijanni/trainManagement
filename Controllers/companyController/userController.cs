@@ -9,7 +9,7 @@ namespace train_management_system.Controllers.companyController
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class userController : Controller
+    public class userController : ControllerBase
     {
         private readonly companyDAL _companyDAL;
 

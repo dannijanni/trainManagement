@@ -149,6 +149,21 @@ namespace train_management_system.DAL.Company
 
 
         #endregion
+
+        #region Role
+
+        //Get All the Role
+        public List<Role> GetAllRoles()
+        {
+            return _companyDbContext.Roles.ToList();
+        }
+
+        // Get role by ID
+        public Role? GetRoleById(int id)
+        {
+            return _companyDbContext.Roles.FirstOrDefault(r => r.RoleId == id);
+        }
+        #endregion
         #endregion
 
         #region AppConfiguration

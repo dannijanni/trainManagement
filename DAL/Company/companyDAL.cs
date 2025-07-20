@@ -1,6 +1,8 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using train_management_system.Models.Company;
+using train_management_system.Utils;
 
 namespace train_management_system.DAL.Company
 {
@@ -33,6 +35,33 @@ namespace train_management_system.DAL.Company
             return builder.ConnectionString;
         }
 
+        #region Auth
+        public User? AuthenticateUser(string email, string password)
+        {
+            try
+            {
+                var user = _companyDbContext.Users.FirstOrDefault(u => u.Email == email);
+                
+                if (user == null)
+                    return null;
+                
+                var hashedInput = Convert.ToBase64String(PasswordHelper.HashPassword(password));
+
+                if (user.PasswordHash != hashedInput)
+                    return null;
+
+                user.LastLogin = DateTime.UtcNow;
+                _companyDbContext.SaveChanges();
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while authenticating the user.", ex);
+            }
+        }
+
+        #endregion
 
         #region User
         // Create New User
@@ -40,28 +69,39 @@ namespace train_management_system.DAL.Company
         {
             try
             {
-
-                // Delete existing user by same Username or Email (if needed)
+                // Check if user with same username or email already exists
                 var existingUser = _companyDbContext.Users
                     .FirstOrDefault(x => x.Username == entity.Username || x.Email == entity.Email);
 
                 if (existingUser != null)
                 {
-                    _companyDbContext.Users.Remove(existingUser);
-                    _companyDbContext.SaveChanges(); // Ensure delete before insert
+                    throw new Exception("A user with the same username or email already exists.");
                 }
 
-                // Set creation date and active status
+                // Set additional fields
                 entity.CreatedAt = DateTime.UtcNow;
                 entity.IsActive = true;
 
-                // Insert new user
+                // Insert user
                 _companyDbContext.Users.Add(entity);
-                _companyDbContext.SaveChanges(); // Final save
+                _companyDbContext.SaveChanges();
             }
             catch (Exception ex)
             {
                 throw new Exception("An error occurred while saving the user.", ex);
+            }
+        }
+
+        //Get User GUID through Email
+        public User getUserIDbyEmail(string email)
+        {
+            try
+            {
+                return _companyDbContext.Users.FirstOrDefault(u => u.Email == email);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("User not found.", ex);
             }
         }
 
@@ -77,12 +117,19 @@ namespace train_management_system.DAL.Company
                     throw new Exception("User not found.");
                 }
 
-                // Update fields (you can customize this as needed)
+                // Update fields
                 existingUser.Username = updatedUser.Username;
                 existingUser.Email = updatedUser.Email;
-                existingUser.Username = updatedUser.Username;
+                existingUser.PasswordHash = updatedUser.PasswordHash; // Include if password change is allowed
+                existingUser.RoleId = updatedUser.RoleId;
                 existingUser.IsActive = updatedUser.IsActive;
-                existingUser.CreatedAt = DateTime.UtcNow;
+                existingUser.FirstName = updatedUser.FirstName;
+                existingUser.LastName = updatedUser.LastName;
+                existingUser.Phone = updatedUser.Phone;
+                existingUser.Department = updatedUser.Department;
+                existingUser.EmployeeId = updatedUser.EmployeeId;
+
+                // Avoid touching CreatedAt here
 
                 _companyDbContext.SaveChanges();
             }
@@ -92,8 +139,9 @@ namespace train_management_system.DAL.Company
             }
         }
 
+
         //Delete User
-        public void DeleteUser(int userId)
+        public void DeleteUser(Guid userId)
         {
             try
             {
@@ -103,7 +151,7 @@ namespace train_management_system.DAL.Company
                 {
                     throw new Exception("User not found.");
                 }
-
+                 
                 _companyDbContext.Users.Remove(user);
                 _companyDbContext.SaveChanges();
             }
@@ -127,7 +175,7 @@ namespace train_management_system.DAL.Company
         }
 
         //Get User By Id
-        public User GetUserById(int userId)
+        public User GetUserById(Guid userId)
         {
             try
             {

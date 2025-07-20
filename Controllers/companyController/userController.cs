@@ -4,6 +4,7 @@ using System.Text;
 using train_management_system.DAL.Company;
 using train_management_system.DTO;
 using train_management_system.Models.Company;
+using train_management_system.Utils;
 
 namespace train_management_system.Controllers.companyController
 {
@@ -28,11 +29,17 @@ namespace train_management_system.Controllers.companyController
             {
                 var newUser = new User
                 {
+                    UserId = Guid.NewGuid(), // Ensure GUID is generated here
                     Username = dto.Username,
                     Email = dto.Email,
-                    PasswordHash = HashPassword(dto.Password),
+                    PasswordHash = Convert.ToBase64String(PasswordHelper.HashPassword(dto.Password)),
                     RoleId = dto.RoleId,
-                    // UserId and CreatedAt will be handled in DAL
+                    FirstName = dto.FirstName,
+                    LastName = dto.LastName,
+                    Phone = dto.Phone,
+                    Department = dto.Department,
+                    EmployeeId = dto.EmployeeId,
+                    // CreatedAt and IsActive set in DAL
                 };
 
                 _companyDAL.SaveUser(newUser);
@@ -44,16 +51,9 @@ namespace train_management_system.Controllers.companyController
             }
         }
 
-        //Password Conversion
-        private byte[] HashPassword(string password)
-        {
-            using var sha256 = SHA256.Create();
-            return sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        }
-
         //UPdate User
         [HttpPut("updateUser")]
-        public IActionResult UpdateUser([FromQuery] int id, [FromBody] userDTO.UpdateUserDto dto)
+        public IActionResult UpdateUser([FromQuery] Guid id, [FromBody] userDTO.UpdateUserDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -65,9 +65,14 @@ namespace train_management_system.Controllers.companyController
                     UserId = id,
                     Username = dto.Username,
                     Email = dto.Email,
-                    PasswordHash = HashPassword(dto.Password),
+                    PasswordHash = Convert.ToBase64String(PasswordHelper.HashPassword(dto.Password)),
                     RoleId = dto.RoleId,
-                    IsActive = dto.IsActive
+                    IsActive = dto.IsActive,
+                    FirstName = dto.FirstName,
+                    LastName = dto.LastName,
+                    Phone = dto.Phone,
+                    Department = dto.Department,
+                    EmployeeId = dto.EmployeeId
                 };
 
                 _companyDAL.UpdateUser(updatedUser);
@@ -78,10 +83,10 @@ namespace train_management_system.Controllers.companyController
                 return StatusCode(500, new { message = "An error occurred.", error = ex.Message });
             }
         }
-
+        
         //Delete User
         [HttpDelete("deleteUser")]
-        public IActionResult DeleteUser(int id)
+        public IActionResult DeleteUser(Guid id)
         {
             try
             {
@@ -109,9 +114,26 @@ namespace train_management_system.Controllers.companyController
             }
         }
 
+        [HttpGet("getUserByEmail")]
+        public IActionResult GetUserByEmail([FromQuery] string email)
+        {
+            try
+            {
+                var user = _companyDAL.getUserIDbyEmail(email);
+                if (user == null)
+                    return NotFound(new { message = "User not found" });
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred.", error = ex.Message });
+            }
+        }
+
         //Get User By Id
         [HttpGet("getUserById")]
-        public IActionResult GetUserById([FromQuery] int id)
+        public IActionResult GetUserById([FromQuery] Guid id)
         {
             try
             {
@@ -126,5 +148,6 @@ namespace train_management_system.Controllers.companyController
                 return StatusCode(500, new { message = "An error occurred.", error = ex.Message });
             }
         }
+
     }
 }

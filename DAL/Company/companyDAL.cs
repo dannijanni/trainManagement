@@ -3,7 +3,12 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using train_management_system.Models.Company;
 using train_management_system.Utils;
+using static train_management_system.DTO.routeDTO;
+using static train_management_system.DTO.scheduleDTO;
 using static train_management_system.DTO.trainDTO;
+using CompanyRoute = train_management_system.Models.Company.Route;
+using RouteDTO = train_management_system.DTO.routeDTO.Route;
+
 
 namespace train_management_system.DAL.Company
 {
@@ -430,6 +435,187 @@ namespace train_management_system.DAL.Company
 
 
         #endregion
+
+        #region Route
+        public async Task<Guid> AddRouteAsync(AddRouteRequest request)
+        {
+            var route = new train_management_system.Models.Company.Route
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                RouteFrom = request.From,
+                RouteTo = request.To,
+                Distance = request.Distance,
+                EstimatedDuration = request.EstimatedDuration,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _companyDbContext.Routes.Add(route);
+            await _companyDbContext.SaveChangesAsync();
+
+            foreach (var via in request.Via)
+            {
+                _companyDbContext.RouteVia.Add(new RouteVium
+                {
+                    RouteId = route.Id,
+                    Via = via
+                });
+            }
+
+            foreach (var kvp in request.Pricing)
+            {
+                _companyDbContext.RoutePricings.Add(new RoutePricing
+                {
+                    RouteId = route.Id,
+                    ClassName = kvp.Key,
+                    Price = kvp.Value
+                });
+            }
+
+            await _companyDbContext.SaveChangesAsync();
+            return route.Id;
+        }
+
+        public async Task<List<train_management_system.Models.Company.Route>> GetAllRoutesAsync()
+        {
+            return await _companyDbContext.Routes
+                .Include(r => r.RouteVia)
+                .Include(r => r.RoutePricings)
+                .ToListAsync();
+        }
+
+        public async Task<bool> UpdateRouteAsync(UpdateRouteRequest request)
+        {
+            var route = await _companyDbContext.Routes
+                .Include(r => r.RouteVia)
+                .Include(r => r.RoutePricings)
+                .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+            if (route == null)
+                return false;
+
+            route.Name = request.Name;
+            route.RouteFrom = request.From;
+            route.RouteTo = request.To;
+            route.Distance = request.Distance;
+            route.EstimatedDuration = request.EstimatedDuration;
+            route.IsActive = request.IsActive;
+            route.UpdatedAt = DateTime.UtcNow;
+
+            // Replace VIA
+            _companyDbContext.RouteVia.RemoveRange(route.RouteVia);
+            foreach (var via in request.Via)
+            {
+                _companyDbContext.RouteVia.Add(new RouteVium
+                {
+                    RouteId = route.Id,
+                    Via = via
+                });
+            }
+
+            // Replace Pricing
+            _companyDbContext.RoutePricings.RemoveRange(route.RoutePricings);
+            foreach (var kvp in request.Pricing)
+            {
+                _companyDbContext.RoutePricings.Add(new RoutePricing
+                {
+                    RouteId = route.Id,
+                    ClassName = kvp.Key,
+                    Price = kvp.Value
+                });
+            }
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteRouteAsync(Guid id)
+        {
+            var route = await _companyDbContext.Routes
+                .Include(r => r.RouteVia)
+                .Include(r => r.RoutePricings)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (route == null) return false;
+
+            _companyDbContext.RouteVia.RemoveRange(route.RouteVia);
+            _companyDbContext.RoutePricings.RemoveRange(route.RoutePricings);
+            _companyDbContext.Routes.Remove(route);
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+
+        #endregion
+
+        #region Schedule
+        public async Task<Guid> AddScheduleAsync(AddScheduleRequest request)
+        {
+            var schedule = new Schedule
+            {
+                Id = Guid.NewGuid(),
+                RouteId = request.RouteId,
+                TrainId = request.TrainId,
+                DriverId = request.DriverId,
+                DepartureTime = TimeOnly.Parse(request.DepartureTime),
+                ArrivalTime = TimeOnly.Parse(request.ArrivalTime),
+                Date = DateOnly.Parse(request.Date),
+                Frequency = request.Frequency,
+                Status = request.Status,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _companyDbContext.Schedules.Add(schedule);
+            await _companyDbContext.SaveChangesAsync();
+
+            return schedule.Id;
+        }
+
+        public async Task<bool> UpdateScheduleAsync(UpdateScheduleRequest request)
+        {
+            var schedule = await _companyDbContext.Schedules.FindAsync(request.Id);
+            if (schedule == null) return false;
+
+            schedule.RouteId = request.RouteId;
+            schedule.TrainId = request.TrainId;
+            schedule.DriverId = request.DriverId;
+            schedule.DepartureTime = TimeOnly.Parse(request.DepartureTime);
+            schedule.ArrivalTime = TimeOnly.Parse(request.ArrivalTime);
+            schedule.Date = DateOnly.Parse(request.Date);
+            schedule.Frequency = request.Frequency;
+            schedule.Status = request.Status;
+            schedule.UpdatedAt = DateTime.UtcNow;
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<List<Schedule>> GetAllSchedulesAsync()
+        {
+            return await _companyDbContext.Schedules
+                .Include(s => s.Route)
+                .Include(s => s.Train)
+                .ToListAsync();
+        }
+
+        public async Task<bool> DeleteScheduleAsync(Guid id)
+        {
+            var schedule = await _companyDbContext.Schedules.FindAsync(id);
+            if (schedule == null) return false;
+
+            _companyDbContext.Schedules.Remove(schedule);
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        #endregion
+
+
+
         #endregion
 
         #region AppConfiguration

@@ -10,11 +10,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddAuthentication("MyCookieAuth")
-    .AddCookie("MyCookieAuth", options =>
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
     {
-        options.Cookie.Name = "MyAuthCookie";
-        options.ExpireTimeSpan = TimeSpan.FromHours(1);
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
     });
 
 builder.Services.AddAuthorization();

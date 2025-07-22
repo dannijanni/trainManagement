@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthState } from '../types';
 import LocalStorageManager from '../utils/localStorage';
+import axios from 'axios';
+import { Base_URL } from '../config';
 
 interface AuthContextType extends AuthState {
   login: (username: string, password: string) => Promise<boolean>;
@@ -46,29 +48,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    try {
-      const users = LocalStorageManager.getUsers();
-      const user = users.find(u => 
-        (u.username === username || u.email === username) && 
-        u.password === password && 
-        u.isActive
-      );
+  try {
+    const response = await axios.post(`${Base_URL}/auth/loginUser`, {
+      email: username, // Assuming username can be an email
+      password: password,
+    });
 
-      if (user) {
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          loading: false
-        });
-        localStorage.setItem('train_current_user', JSON.stringify(user));
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
+    const data = response.data;
+    console.log('Login response:', data);
+
+    if (data.userId) {
+      // Assuming you want to store some user data in localStorage
+      const user: User = {
+        id: data.userId,
+        username: data.username,
+        email: data.email,
+        password: '', // Password should not be stored, but required by type
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        phone: data.phone || '',
+        role: data.roleId === 1 ? 'admin' : 'customer', // Adjust role mapping as needed
+        createdAt: data.createdAt || new Date().toISOString(),
+        isActive: false
+      };
+
+      setAuthState({
+        user,
+        isAuthenticated: true,
+        loading: false
+      });
+
+      localStorage.setItem('train_current_user', JSON.stringify(user));
+      return true;
     }
-  };
+
+    return false;
+  } catch (error) {
+    console.error('Login error:', error);
+    return false;
+  }
+};
+
 
   const register = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<boolean> => {
     try {

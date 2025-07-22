@@ -6,6 +6,7 @@ using train_management_system.Utils;
 using static train_management_system.DTO.routeDTO;
 using static train_management_system.DTO.scheduleDTO;
 using static train_management_system.DTO.trainDTO;
+using static train_management_system.DTO.vehcialDTO;
 using CompanyRoute = train_management_system.Models.Company.Route;
 using RouteDTO = train_management_system.DTO.routeDTO.Route;
 
@@ -608,6 +609,69 @@ namespace train_management_system.DAL.Company
             if (schedule == null) return false;
 
             _companyDbContext.Schedules.Remove(schedule);
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        #endregion
+
+        #region Vehical
+        public async Task<Guid> AddVehicleAsync(AddVehicleRequest request)
+        {
+            var vehicle = new Vehicle
+            {
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Type = request.Type,
+                Capacity = request.Capacity,
+                Status = request.Status,
+                RegistrationNumber = request.RegistrationNumber,
+                Manufacturer = request.Manufacturer,
+                Model = request.Model,
+                YearOfManufacture = request.YearOfManufacture,
+                LastMaintenance = string.IsNullOrEmpty(request.LastMaintenance) ? null : DateTime.Parse(request.LastMaintenance),
+                NextMaintenance = string.IsNullOrEmpty(request.NextMaintenance) ? null : DateTime.Parse(request.NextMaintenance),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _companyDbContext.Vehicles.Add(vehicle);
+            await _companyDbContext.SaveChangesAsync();
+            return vehicle.Id;
+        }
+
+        public async Task<List<Vehicle>> GetAllVehiclesAsync()
+        {
+            return await _companyDbContext.Vehicles.ToListAsync();
+        }
+
+        public async Task<bool> UpdateVehicleAsync(UpdateVehicleRequest request)
+        {
+            var vehicle = await _companyDbContext.Vehicles.FindAsync(request.Id);
+            if (vehicle == null) return false;
+
+            vehicle.Name = request.Name;
+            vehicle.Type = request.Type;
+            vehicle.Capacity = request.Capacity;
+            vehicle.Status = request.Status;
+            vehicle.RegistrationNumber = request.RegistrationNumber;
+            vehicle.Manufacturer = request.Manufacturer;
+            vehicle.Model = request.Model;
+            vehicle.YearOfManufacture = request.YearOfManufacture;
+            vehicle.LastMaintenance = string.IsNullOrEmpty(request.LastMaintenance) ? null : DateTime.Parse(request.LastMaintenance);
+            vehicle.NextMaintenance = string.IsNullOrEmpty(request.NextMaintenance) ? null : DateTime.Parse(request.NextMaintenance);
+            vehicle.UpdatedAt = DateTime.UtcNow;
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DeleteVehicleAsync(Guid id)
+        {
+            var vehicle = await _companyDbContext.Vehicles.FindAsync(id);
+            if (vehicle == null) return false;
+
+            _companyDbContext.Vehicles.Remove(vehicle);
             await _companyDbContext.SaveChangesAsync();
             return true;
         }

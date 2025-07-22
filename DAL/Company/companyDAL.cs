@@ -3,6 +3,8 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using train_management_system.Models.Company;
 using train_management_system.Utils;
+using static train_management_system.DTO.bookingDTO;
+using static train_management_system.DTO.driverDTO;
 using static train_management_system.DTO.routeDTO;
 using static train_management_system.DTO.scheduleDTO;
 using static train_management_system.DTO.trainDTO;
@@ -676,6 +678,296 @@ namespace train_management_system.DAL.Company
             return true;
         }
 
+        #endregion
+
+        #region Driver
+        public async Task<Guid> AddDriverAsync(AddDriverRequest request)
+        {
+            var driver = new Driver
+            {
+                Id = Guid.NewGuid(),
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Email = request.Email,
+                Phone = request.Phone,
+                LicenseNumber = request.LicenseNumber,
+                LicenseExpiry = DateOnly.Parse(request.LicenseExpiry),
+                Status = request.Status,
+                Experience = request.Experience,
+                Rating = request.Rating,
+                TotalTrips = request.TotalTrips,
+                Availability = request.Availability,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _companyDbContext.Drivers.Add(driver);
+            await _companyDbContext.SaveChangesAsync();
+            return driver.Id;
+        }
+
+        public async Task<bool> UpdateDriverAsync(UpdateDriverRequest request)
+        {
+            var driver = await _companyDbContext.Drivers.FindAsync(request.Id);
+            if (driver == null) return false;
+
+            driver.FirstName = request.FirstName;
+            driver.LastName = request.LastName;
+            driver.Email = request.Email;
+            driver.Phone = request.Phone;
+            driver.LicenseNumber = request.LicenseNumber;
+            driver.LicenseExpiry = DateOnly.Parse(request.LicenseExpiry);
+            driver.Status = request.Status;
+            driver.Experience = request.Experience;
+            driver.Rating = request.Rating;
+            driver.TotalTrips = request.TotalTrips;
+            driver.Availability = request.Availability;
+            driver.UpdatedAt = DateTime.UtcNow;
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<List<Driver>> GetAllDriversAsync()
+        {
+            return await _companyDbContext.Drivers.ToListAsync();
+        }
+
+        public async Task<bool> DeleteDriverAsync(Guid id)
+        {
+            var driver = await _companyDbContext.Drivers.FindAsync(id);
+            if (driver == null) return false;
+
+            _companyDbContext.Drivers.Remove(driver);
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+        #endregion
+
+        #region Bookinng
+        public async Task<Guid> CreateBookingAsync(CreateBookingRequest request)
+        {
+            var booking = new Booking
+            {
+                Id = Guid.NewGuid(),
+                TrainId = request.TrainId,
+                UserId = request.UserId,
+                TotalAmount = request.TotalAmount,
+                Status = request.Status,
+                PaymentStatus = request.PaymentStatus,
+                PaymentMethod = request.PaymentMethod,
+                PaymentId = request.PaymentId,
+                BookingDate = DateTime.Parse(request.BookingDate),
+                TravelDate = DateOnly.Parse(request.TravelDate),
+                Qrcode = request.QrCode,
+                CreatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? null : Guid.Parse(request.CreatedBy),
+                Notes = request.Notes,
+                SpecialBookingCode = request.SpecialBookingCode,
+                IsAdminBooking = request.IsAdminBooking,
+                RefundStatus = "pending",
+                BookingSeats = request.Seats.Select(seat => new BookingSeat
+                {
+                    Class = seat.Class,
+                    SeatNumber = seat.SeatNumber,
+                    Price = seat.Price
+                }).ToList(),
+                Passengers = request.PassengerDetails.Select(p => new Passenger
+                {
+                    Name = p.Name,
+                    Age = p.Age,
+                    Gender = p.Gender,
+                    Email = p.Email,
+                    Phone = p.Phone
+                }).ToList()
+            };
+
+            // Handle cash collection if manual
+            if (request.PaymentMethod == "manual" && request.PaymentDetails != null)
+            {
+                var cashCollection = new CashCollection
+                {
+                    Id = Guid.NewGuid(),
+                    Date = DateOnly.FromDateTime(DateTime.Now),
+                    CashierName = request.PaymentDetails.CashierName,
+                    CounterLocation = request.PaymentDetails.CounterLocation,
+                    TotalAmount = request.TotalAmount,
+                    StartTime = TimeOnly.FromDateTime(DateTime.Now),
+                    Notes = request.PaymentDetails.DeferralReason
+                };
+
+                var cashBooking = new CashCollectionBooking
+                {
+                    BookingId = booking.Id,
+                    CashCollectionId = cashCollection.Id
+                };
+
+                booking.CashCollectionBookings.Add(cashBooking);
+                _companyDbContext.CashCollections.Add(cashCollection);
+            }
+
+            _companyDbContext.Bookings.Add(booking);
+            await _companyDbContext.SaveChangesAsync();
+            return booking.Id;
+        }
+
+        public async Task<Booking?> GetBookingByIdAsync(Guid bookingId)
+        {
+            return await _companyDbContext.Bookings
+                .Include(b => b.BookingSeats)
+                .Include(b => b.Passengers)
+                .Include(b => b.Payments)
+                .Include(b => b.CashCollectionBookings)
+                    .ThenInclude(ccb => ccb.CashCollection)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+        }
+
+        public async Task<bool> CancelBookingAsync(Guid bookingId)
+        {
+            var booking = await _companyDbContext.Bookings
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return false;
+
+            booking.Status = "cancelled";
+            booking.CancellationDate = DateTime.UtcNow;
+            booking.RefundStatus = "pending";
+            booking.RefundAmount = booking.TotalAmount; // optional, adjust refund policy
+            booking.RefundProcessedBy = "system"; // or from context if admin/user info is available
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
+
+        #endregion
+
+        #region Payment
+        public async Task<Payment> CreatePaymentAsync(Payment payment)
+        {
+            payment.Id = Guid.NewGuid();
+            payment.PaymentDate = DateTime.UtcNow;
+
+            _companyDbContext.Payments.Add(payment);
+            await _companyDbContext.SaveChangesAsync();
+
+            return payment;
+        }
+
+        public async Task<List<Payment>> GetPaymentsByBookingIdAsync(Guid bookingId)
+        {
+            return await _companyDbContext.Payments
+                .Where(p => p.BookingId == bookingId)
+                .ToListAsync();
+        }
+
+        public async Task<CashCollection> CreateCashCollectionAsync(CashCollection collection, List<Guid> bookingIds)
+        {
+            collection.Id = Guid.NewGuid();
+            _companyDbContext.CashCollections.Add(collection);
+
+            foreach (var bookingId in bookingIds)
+            {
+                _companyDbContext.CashCollectionBookings.Add(new CashCollectionBooking
+                {
+                    BookingId = bookingId,
+                    CashCollectionId = collection.Id
+                });
+            }
+
+            await _companyDbContext.SaveChangesAsync();
+            return collection;
+        }
+
+        public async Task<CashCollection?> GetCashCollectionByIdAsync(Guid id)
+        {
+            return await _companyDbContext.CashCollections
+                .Include(cc => cc.CashCollectionBookings)
+                    .ThenInclude(ccb => ccb.Booking)
+                .FirstOrDefaultAsync(cc => cc.Id == id);
+        }
+
+        public async Task<List<Payment>> GetAllPaymentsAsync()
+        {
+            return await _companyDbContext.Payments.ToListAsync();
+        }
+
+        public async Task<List<CashCollection>> GetAllCashCollectionsAsync()
+        {
+            return await _companyDbContext.CashCollections
+                .Include(cc => cc.CashCollectionBookings)
+                .ToListAsync();
+        }
+
+
+
+        #endregion
+
+        #region System
+        public async Task<SystemSetting?> GetAsync() =>
+        await _companyDbContext.Set<SystemSetting>().FirstOrDefaultAsync();
+
+        public async Task SaveAsync(SystemSetting setting)
+        {
+            var existing = await GetAsync();
+            if (existing != null)
+            {
+                _companyDbContext.Entry(existing).CurrentValues.SetValues(setting);
+            }
+            else
+            {
+                _companyDbContext.Set<SystemSetting>().Add(setting);
+            }
+            await _companyDbContext.SaveChangesAsync();
+        }
+        #endregion
+
+        #region User Activity
+        public async Task<IEnumerable<UserActivity>> GetAllAsync() =>
+        await _companyDbContext.Set<UserActivity>().ToListAsync();
+
+        public async Task<UserActivity?> GetByIdAsync(Guid id) =>
+            await _companyDbContext.Set<UserActivity>().FindAsync(id);
+
+        public async Task AddAsync(UserActivity activity)
+        {
+            _companyDbContext.Set<UserActivity>().Add(activity);
+            await _companyDbContext.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(Guid id)
+        {
+            var activity = await GetByIdAsync(id);
+            if (activity != null)
+            {
+                _companyDbContext.Set<UserActivity>().Remove(activity);
+                await _companyDbContext.SaveChangesAsync();
+            }
+        }
+
+        public async Task<IEnumerable<UserActivity>> GetByUserIdAsync(Guid userId)
+        {
+            return await _companyDbContext.Set<UserActivity>()
+                .Where(a => a.UserId == userId)
+                .OrderByDescending(a => a.Timestamp)
+                .ToListAsync();
+        }
+
+        public async Task LogAsync(Guid userId, string action, string details, string? ipAddress = null)
+        {
+            var activity = new UserActivity
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Action = action,
+                Details = details,
+                Timestamp = DateTime.UtcNow,
+                IpAddress = ipAddress
+            };
+
+            await _dal.AddAsync(activity);
+        }
         #endregion
 
 

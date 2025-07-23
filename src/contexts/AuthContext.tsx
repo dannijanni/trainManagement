@@ -91,32 +91,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   const register = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<boolean> => {
-    try {
-      const users = LocalStorageManager.getUsers();
-      
-      // Check if user already exists
-      const existingUser = users.find(u => 
-        u.username === userData.username || u.email === userData.email
-      );
-      
-      if (existingUser) {
-        return false;
-      }
+  try {
+    const response = await axios.post(`${Base_URL}/user/createUser`, {
+      username: userData.username,
+      email: userData.email,
+      password: userData.password,
+      roleId: userData.role === 'customer' ? 4 : getRoleId(userData.role), // Default to customer role if not provided
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      phone: userData.phone,
+      department: userData.department || '', // Provide default value if not specified
+      employeeId: userData.employeeId || '', // Provide default value if not specified
+    });
 
-      const newUser: User = {
-        ...userData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString()
+    const data = response.data;
+
+    console.log('Registration response:', data);
+
+    if (data.userId) {
+      // Assuming you want to store some user data in localStorage
+      const user: User = {
+        id: data.userId,
+        username: userData.username,
+        email: userData.email,
+        password: '', // Password should not be stored, but required by type
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        phone: userData.phone,
+        role: userData.role || 'customer', // Default to customer role if not provided
+        createdAt: new Date().toISOString(),
+        isActive: true,
       };
 
-      users.push(newUser);
-      LocalStorageManager.saveUsers(users);
+      setAuthState({
+        user,
+        isAuthenticated: true,
+        loading: false
+      });
+
+      localStorage.setItem('train_current_user', JSON.stringify(user));
       return true;
-    } catch (error) {
-      console.error('Registration error:', error);
-      return false;
     }
-  };
+
+    return false;
+  } catch (error) {
+    console.error('Registration error:', error);
+    return false;
+  }
+};
+
+// Helper function to map role to roleId
+const getRoleId = (role?: string): number => {
+  switch (role) {
+    case 'admin':
+      return 1;
+    case 'manager':
+      return 2;
+    case 'staff':
+      return 3;
+    default:
+      return 4; // Default to customer role
+  }
+};
 
   const logout = () => {
     setAuthState({

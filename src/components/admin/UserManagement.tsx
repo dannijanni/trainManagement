@@ -1,23 +1,23 @@
+// src/components/UserManagement.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  Filter,
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
   User as UserIcon,
   Shield,
   ShieldCheck,
   ShieldX,
-  Eye,
-  EyeOff,
   ToggleLeft,
   ToggleRight,
   Download
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
+import { fetchUsers, createUser, updateUser, deleteUser } from '../../services/userAPI';
 import { User } from '../../types';
+import axios from 'axios';
+import { Base_URL } from '../../config';
 
 const UserManagement: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -28,7 +28,6 @@ const UserManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [viewingActivities, setViewingActivities] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -43,6 +42,14 @@ const UserManagement: React.FC = () => {
   });
 
   useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersData = await fetchUsers();
+        setUsers(usersData);
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    };
     loadUsers();
   }, []);
 
@@ -50,14 +57,8 @@ const UserManagement: React.FC = () => {
     filterUsers();
   }, [users, searchTerm, roleFilter, statusFilter]);
 
-  const loadUsers = () => {
-    const usersData = LocalStorageManager.getUsers();
-    setUsers(usersData);
-  };
-
   const filterUsers = () => {
     let filtered = users;
-
     if (searchTerm) {
       filtered = filtered.filter(user =>
         user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -66,54 +67,32 @@ const UserManagement: React.FC = () => {
         user.username.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
     if (roleFilter !== 'all') {
       filtered = filtered.filter(user => user.role === roleFilter);
     }
-
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => 
+      filtered = filtered.filter(user =>
         statusFilter === 'active' ? user.isActive : !user.isActive
       );
     }
-
     setFilteredUsers(filtered);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const userData: User = {
-      id: editingUser?.id || Date.now().toString(),
-      username: formData.username,
-      email: formData.email,
-      password: formData.password,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-      role: formData.role,
-      department: formData.department || undefined,
-      employeeId: formData.employeeId || undefined,
-      isActive: formData.isActive,
-      createdAt: editingUser?.createdAt || new Date().toISOString(),
-      lastLogin: editingUser?.lastLogin
-    };
-
-    const updatedUsers = editingUser
-      ? users.map(u => u.id === editingUser.id ? userData : u)
-      : [...users, userData];
-
-    setUsers(updatedUsers);
-    LocalStorageManager.saveUsers(updatedUsers);
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      currentUser?.id || '',
-      editingUser ? 'user_updated' : 'user_created',
-      `${editingUser ? 'Updated' : 'Created'} user: ${userData.username}`
-    );
-    
-    resetForm();
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.id, formData);
+        console.log('User updated successfully: ', formData);
+      } else {
+        await createUser(formData);
+      }
+      const usersData = await fetchUsers();
+      setUsers(usersData);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to save user:', error);
+    }
   };
 
   const handleEdit = (user: User) => {
@@ -121,7 +100,7 @@ const UserManagement: React.FC = () => {
     setFormData({
       username: user.username,
       email: user.email,
-      password: '', // Don't show existing password
+      password: '',
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
@@ -133,75 +112,26 @@ const UserManagement: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleDelete = (userId: string) => {
+  const handleDelete = async (userId: string) => {
     if (currentUser?.role !== 'admin') {
       alert('Only administrators can delete users');
       return;
     }
-    
+
     if (userId === currentUser?.id) {
       alert('You cannot delete your own account');
       return;
     }
-    
+
     if (confirm('Are you sure you want to delete this user?')) {
-      const updatedUsers = users.filter(u => u.id !== userId);
-      setUsers(updatedUsers);
-      LocalStorageManager.saveUsers(updatedUsers);
-      
-      // Log activity
-      LocalStorageManager.logUserActivity(
-        currentUser?.id || '',
-        'user_deleted',
-        `Deleted user: ${userId}`
-      );
+      try {
+        await deleteUser(userId);
+        const updatedUsers = users.filter(user => user.id !== userId);
+        setUsers(updatedUsers);
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
     }
-  };
-
-  const toggleUserStatus = (userId: string) => {
-    if (userId === currentUser?.id) {
-      alert('You cannot deactivate your own account');
-      return;
-    }
-    
-    const updatedUsers = users.map(user =>
-      user.id === userId 
-        ? { ...user, isActive: !user.isActive }
-        : user
-    );
-    
-    setUsers(updatedUsers);
-    LocalStorageManager.saveUsers(updatedUsers);
-    
-    // Log activity
-    const user = users.find(u => u.id === userId);
-    LocalStorageManager.logUserActivity(
-      currentUser?.id || '',
-      'user_status_changed',
-      `${user?.isActive ? 'Deactivated' : 'Activated'} user: ${user?.username}`
-    );
-  };
-
-  const resetPassword = (userId: string) => {
-    const newPassword = 'temp123';
-    const updatedUsers = users.map(user =>
-      user.id === userId 
-        ? { ...user, password: newPassword }
-        : user
-    );
-    
-    setUsers(updatedUsers);
-    LocalStorageManager.saveUsers(updatedUsers);
-    
-    // Log activity
-    const user = users.find(u => u.id === userId);
-    LocalStorageManager.logUserActivity(
-      currentUser?.id || '',
-      'password_reset',
-      `Reset password for user: ${user?.username}`
-    );
-    
-    alert(`Password reset to: ${newPassword}`);
   };
 
   const resetForm = () => {
@@ -254,7 +184,6 @@ const UserManagement: React.FC = () => {
         new Date(user.createdAt).toLocaleDateString()
       ].join(','))
     ].join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -264,6 +193,47 @@ const UserManagement: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const toggleUserStatus = async (userId: string) => {
+    if (userId === currentUser?.id) {
+      alert('You cannot deactivate your own account');
+      return;
+    }
+
+    try {
+      const updatedUsers = users.map(user =>
+        user.id === userId ? { ...user, isActive: !user.isActive } : user
+      );
+
+      await axios.put(`${Base_URL}/user/updateUser?id=${userId}`, {
+        isActive: !users.find(user => user.id === userId)?.isActive
+      });
+
+      setUsers(updatedUsers);
+      const user = users.find(u => u.id === userId);
+      console.log(`${user?.isActive ? 'Deactivated' : 'Activated'} user: ${user?.username}`);
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+    }
+  };
+
+  const resetPassword = async (userId: string) => {
+    const newPassword = 'temp123';
+    try {
+      await axios.post(`${Base_URL}/user/resetPassword`, {
+        userId,
+        password: newPassword
+      });
+
+      const updatedUsers = users.map(user =>
+        user.id === userId ? { ...user, password: newPassword } : user
+      );
+      setUsers(updatedUsers);
+      alert(`Password reset to: ${newPassword}`);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -271,8 +241,6 @@ const UserManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-600 mt-2">Manage user accounts and permissions</p>
         </div>
-
-        {/* Search and Filter Bar */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex-1 max-w-md">
@@ -287,7 +255,6 @@ const UserManagement: React.FC = () => {
                 />
               </div>
             </div>
-            
             <div className="flex gap-3 flex-wrap">
               <select
                 value={roleFilter}
@@ -300,7 +267,6 @@ const UserManagement: React.FC = () => {
                 <option value="staff">Staff</option>
                 <option value="customer">Customer</option>
               </select>
-              
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -310,7 +276,6 @@ const UserManagement: React.FC = () => {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-              
               <button
                 onClick={exportUsers}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -318,10 +283,12 @@ const UserManagement: React.FC = () => {
                 <Download className="h-4 w-4" />
                 Export
               </button>
-              
               {currentUser?.role === 'admin' && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={() => {
+                    setEditingUser(null);
+                    setShowCreateModal(true);
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
@@ -331,31 +298,17 @@ const UserManagement: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Users Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Department
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -367,9 +320,7 @@ const UserManagement: React.FC = () => {
                           <UserIcon className="h-5 w-5 text-white" />
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.firstName} {user.lastName}
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{user.firstName} {user.lastName}</div>
                           <div className="text-sm text-gray-500">{user.email}</div>
                         </div>
                       </div>
@@ -382,9 +333,7 @@ const UserManagement: React.FC = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.department || '-'}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.department || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
                         onClick={() => toggleUserStatus(user.id)}
@@ -431,7 +380,6 @@ const UserManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
-
           {filteredUsers.length === 0 && (
             <div className="text-center py-12">
               <UserIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -440,8 +388,6 @@ const UserManagement: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -449,13 +395,10 @@ const UserManagement: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 {editingUser ? 'Edit User' : 'Add New User'}
               </h2>
-              
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Username
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                     <input
                       type="text"
                       required
@@ -465,9 +408,7 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input
                       type="email"
                       required
@@ -477,7 +418,6 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password {editingUser && '(leave blank to keep current)'}
@@ -490,12 +430,9 @@ const UserManagement: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                     <input
                       type="text"
                       required
@@ -505,9 +442,7 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                     <input
                       type="text"
                       required
@@ -517,11 +452,8 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
                     required
@@ -530,12 +462,9 @@ const UserManagement: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Role
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as any }))}
@@ -550,9 +479,7 @@ const UserManagement: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Department
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                     <input
                       type="text"
                       value={formData.department}
@@ -562,11 +489,8 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee ID
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
                   <input
                     type="text"
                     value={formData.employeeId}
@@ -575,7 +499,6 @@ const UserManagement: React.FC = () => {
                     placeholder="Optional"
                   />
                 </div>
-
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -588,7 +511,6 @@ const UserManagement: React.FC = () => {
                     User is active
                   </label>
                 </div>
-
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"

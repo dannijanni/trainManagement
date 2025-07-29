@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Search, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
   Calendar,
   Clock,
   Train,
@@ -13,7 +13,10 @@ import {
   XCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
+import { getAllSchedules, addSchedule, updateSchedule, deleteSchedule } from '../../services/scheduleAPI';
+import { getAllTrains } from '../../services/trainAPI';
+import { getAllRoutes } from '../../services/trainAPI';
+import { getDrivers } from '../../services/driverAPI';
 import { Schedule, Route, Train as TrainType, Driver } from '../../types';
 
 const ScheduleManagement: React.FC = () => {
@@ -48,21 +51,26 @@ const ScheduleManagement: React.FC = () => {
     filterSchedules();
   }, [schedules, searchTerm, statusFilter, dateFilter]);
 
-  const loadData = () => {
-    const schedulesData = LocalStorageManager.getSchedules();
-    const routesData = LocalStorageManager.getRoutes();
-    const trainsData = LocalStorageManager.getTrains();
-    const driversData = LocalStorageManager.getDrivers();
-    
-    setSchedules(schedulesData);
-    setRoutes(routesData);
-    setTrains(trainsData);
-    setDrivers(driversData);
+  const loadData = async () => {
+    try {
+      const [schedulesData, routesData, trainsData, driversData] = await Promise.all([
+        getAllSchedules(),
+        getAllRoutes(),
+        getAllTrains(),
+        getDrivers()
+      ]);
+
+      setSchedules(schedulesData.$values || schedulesData);
+      setRoutes(routesData.$values || routesData);
+      setTrains(trainsData.$values || trainsData);
+      setDrivers(driversData.$values || driversData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
   };
 
   const filterSchedules = () => {
     let filtered = schedules;
-
     if (searchTerm) {
       filtered = filtered.filter(schedule => {
         const route = routes.find(r => r.id === schedule.routeId);
@@ -71,25 +79,21 @@ const ScheduleManagement: React.FC = () => {
                train?.name.toLowerCase().includes(searchTerm.toLowerCase());
       });
     }
-
     if (statusFilter !== 'all') {
       filtered = filtered.filter(schedule => schedule.status === statusFilter);
     }
-
     if (dateFilter) {
-      filtered = filtered.filter(schedule => 
+      filtered = filtered.filter(schedule =>
         schedule.date.startsWith(dateFilter)
       );
     }
-
     setFilteredSchedules(filtered);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const scheduleData: Schedule = {
-      id: editingSchedule?.id || Date.now().toString(),
+
+    const scheduleData = {
       routeId: formData.routeId,
       trainId: formData.trainId,
       driverId: formData.driverId || undefined,
@@ -98,26 +102,20 @@ const ScheduleManagement: React.FC = () => {
       date: formData.date,
       frequency: formData.frequency,
       daysOfWeek: formData.frequency === 'weekly' ? formData.daysOfWeek : undefined,
-      status: formData.status,
-      createdAt: editingSchedule?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      status: formData.status
     };
 
-    const updatedSchedules = editingSchedule
-      ? schedules.map(s => s.id === editingSchedule.id ? scheduleData : s)
-      : [...schedules, scheduleData];
-
-    setSchedules(updatedSchedules);
-    LocalStorageManager.saveSchedules(updatedSchedules);
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      editingSchedule ? 'schedule_updated' : 'schedule_created',
-      `${editingSchedule ? 'Updated' : 'Created'} schedule for ${getRouteName(scheduleData.routeId)}`
-    );
-    
-    resetForm();
+    try {
+      if (editingSchedule) {
+        await updateSchedule(editingSchedule.id, scheduleData);
+      } else {
+        await addSchedule(scheduleData);
+      }
+      await loadData();
+      resetForm();
+    } catch (error) {
+      console.error('Failed to save schedule:', error);
+    }
   };
 
   const handleEdit = (schedule: Schedule) => {
@@ -136,23 +134,19 @@ const ScheduleManagement: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const handleDelete = (scheduleId: string) => {
+  const handleDelete = async (scheduleId: string) => {
     if (user?.role !== 'admin') {
       alert('Only administrators can delete schedules');
       return;
     }
-    
+
     if (confirm('Are you sure you want to delete this schedule?')) {
-      const updatedSchedules = schedules.filter(s => s.id !== scheduleId);
-      setSchedules(updatedSchedules);
-      LocalStorageManager.saveSchedules(updatedSchedules);
-      
-      // Log activity
-      LocalStorageManager.logUserActivity(
-        user?.id || '',
-        'schedule_deleted',
-        `Deleted schedule: ${scheduleId}`
-      );
+      try {
+        await deleteSchedule(scheduleId);
+        await loadData();
+      } catch (error) {
+        console.error('Failed to delete schedule:', error);
+      }
     }
   };
 
@@ -226,7 +220,6 @@ const ScheduleManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Schedule Management</h1>
           <p className="text-gray-600 mt-2">Manage train schedules and assignments</p>
         </div>
-
         {/* Search and Filter Bar */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -242,7 +235,7 @@ const ScheduleManagement: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-3 flex-wrap">
               <select
                 value={statusFilter}
@@ -255,14 +248,14 @@ const ScheduleManagement: React.FC = () => {
                 <option value="cancelled">Cancelled</option>
                 <option value="delayed">Delayed</option>
               </select>
-              
+
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              
+
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -273,66 +266,39 @@ const ScheduleManagement: React.FC = () => {
             </div>
           </div>
         </div>
-
         {/* Schedules Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Route
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Train
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Driver
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date & Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Frequency
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Route</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Train</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSchedules.map((schedule) => (
                   <tr key={schedule.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {getRouteName(schedule.routeId)}
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{getRouteName(schedule.routeId)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {getTrainName(schedule.trainId)}
-                      </div>
+                      <div className="text-sm text-gray-900">{getTrainName(schedule.trainId)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {getDriverName(schedule.driverId)}
-                      </div>
+                      <div className="text-sm text-gray-900">{getDriverName(schedule.driverId)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(schedule.date).toLocaleDateString()}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {schedule.departureTime} - {schedule.arrivalTime}
-                      </div>
+                      <div className="text-sm text-gray-900">{new Date(schedule.date).toLocaleDateString()}</div>
+                      <div className="text-sm text-gray-500">{schedule.departureTime} - {schedule.arrivalTime}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                        {schedule.frequency}
-                      </span>
+                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{schedule.frequency}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -344,17 +310,11 @@ const ScheduleManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(schedule)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
+                        <button onClick={() => handleEdit(schedule)} className="text-indigo-600 hover:text-indigo-900">
                           <Edit2 className="h-4 w-4" />
                         </button>
                         {user?.role === 'admin' && (
-                          <button
-                            onClick={() => handleDelete(schedule.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
+                          <button onClick={() => handleDelete(schedule.id)} className="text-red-600 hover:text-red-900">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -365,7 +325,6 @@ const ScheduleManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
-
           {filteredSchedules.length === 0 && (
             <div className="text-center py-12">
               <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -374,7 +333,6 @@ const ScheduleManagement: React.FC = () => {
           )}
         </div>
       </div>
-
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -383,13 +341,11 @@ const ScheduleManagement: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 {editingSchedule ? 'Edit Schedule' : 'Add New Schedule'}
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Route
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Route</label>
                     <select
                       required
                       value={formData.routeId}
@@ -398,16 +354,12 @@ const ScheduleManagement: React.FC = () => {
                     >
                       <option value="">Select Route</option>
                       {routes.filter(r => r.isActive).map(route => (
-                        <option key={route.id} value={route.id}>
-                          {route.name}
-                        </option>
+                        <option key={route.id} value={route.id}>{route.name}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Train
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Train</label>
                     <select
                       required
                       value={formData.trainId}
@@ -416,18 +368,13 @@ const ScheduleManagement: React.FC = () => {
                     >
                       <option value="">Select Train</option>
                       {trains.filter(t => t.status === 'active').map(train => (
-                        <option key={train.id} value={train.id}>
-                          {train.name} ({train.number})
-                        </option>
+                        <option key={train.id} value={train.id}>{train.name} ({train.number})</option>
                       ))}
                     </select>
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Driver (Optional)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Driver (Optional)</label>
                   <select
                     value={formData.driverId}
                     onChange={(e) => setFormData(prev => ({ ...prev, driverId: e.target.value }))}
@@ -435,18 +382,13 @@ const ScheduleManagement: React.FC = () => {
                   >
                     <option value="">Select Driver</option>
                     {drivers.filter(d => d.status === 'active').map(driver => (
-                      <option key={driver.id} value={driver.id}>
-                        {driver.firstName} {driver.lastName}
-                      </option>
+                      <option key={driver.id} value={driver.id}>{driver.firstName} {driver.lastName}</option>
                     ))}
                   </select>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                     <input
                       type="date"
                       required
@@ -456,9 +398,7 @@ const ScheduleManagement: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Departure Time
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
                     <input
                       type="time"
                       required
@@ -468,9 +408,7 @@ const ScheduleManagement: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Arrival Time
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Time</label>
                     <input
                       type="time"
                       required
@@ -480,12 +418,9 @@ const ScheduleManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Frequency
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
                     <select
                       value={formData.frequency}
                       onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value as any }))}
@@ -498,9 +433,7 @@ const ScheduleManagement: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
@@ -513,12 +446,9 @@ const ScheduleManagement: React.FC = () => {
                     </select>
                   </div>
                 </div>
-
                 {formData.frequency === 'weekly' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Days of Week
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Days of Week</label>
                     <div className="grid grid-cols-7 gap-2">
                       {dayNames.map((day, index) => (
                         <label key={index} className="flex items-center">
@@ -534,7 +464,6 @@ const ScheduleManagement: React.FC = () => {
                     </div>
                   </div>
                 )}
-
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"

@@ -1,22 +1,9 @@
+// src/components/TrainManagement.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  Filter,
-  Train,
-  MapPin,
-  Clock,
-  DollarSign,
-  Users,
-  AlertCircle,
-  CheckCircle,
-  XCircle
-} from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Filter, Train as TrainIcon, MapPin, Clock, DollarSign, Users, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
-import { Train as TrainType } from '../../types';
+import { getAllTrains, addTrain, updateTrain, deleteTrain, getAllRoutes } from '../../services/trainAPI';
+import { Train as TrainType, Route } from '../../types';
 
 const TrainManagement: React.FC = () => {
   const { user } = useAuth();
@@ -26,6 +13,7 @@ const TrainManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrain, setEditingTrain] = useState<TrainType | null>(null);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     number: '',
@@ -47,65 +35,72 @@ const TrainManagement: React.FC = () => {
 
   useEffect(() => {
     loadTrains();
+    loadRoutes();
   }, []);
 
   useEffect(() => {
     filterTrains();
   }, [trains, searchTerm, filterStatus]);
 
-  const loadTrains = () => {
-    const trainData = LocalStorageManager.getTrains();
-    setTrains(trainData);
+  const loadTrains = async () => {
+    try {
+      const trainsData = await getAllTrains();
+      setTrains(trainsData.$values || trainsData);
+    } catch (error) {
+      console.error('Failed to load trains:', error);
+    }
+  };
+
+  const loadRoutes = async () => {
+    try {
+      const routesData = await getAllRoutes();
+      setRoutes(routesData.$values || routesData);
+    } catch (error) {
+      console.error('Failed to load routes:', error);
+    }
   };
 
   const filterTrains = () => {
     let filtered = trains;
-
     if (searchTerm) {
       filtered = filtered.filter(train =>
         train.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         train.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        train.route.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        train.route.to.toLowerCase().includes(searchTerm.toLowerCase())
+        train.routeFrom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        train.routeTo.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
     if (filterStatus !== 'all') {
       filtered = filtered.filter(train => train.status === filterStatus);
     }
-
     setFilteredTrains(filtered);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const trainData: TrainType = {
+
+    const trainData = {
       id: editingTrain?.id || Date.now().toString(),
       name: formData.name,
       number: formData.number,
-      route: {
-        from: formData.from,
-        to: formData.to,
-        via: formData.via.split(',').map(s => s.trim()).filter(s => s)
-      },
-      schedule: {
-        departure: formData.departure,
-        arrival: formData.arrival,
-        duration: formData.duration
-      },
+      routeFrom: formData.from,
+      routeTo: formData.to,
+      via: formData.via.split(',').map(s => s.trim()).filter(s => s),
+      departureTime: formData.departure,
+      arrivalTime: formData.arrival,
+      duration: formData.duration,
       classes: {
-        'First Class': {
+        additionalProp1: {
           totalSeats: parseInt(formData.firstClassSeats),
           availableSeats: parseInt(formData.firstClassSeats),
           price: parseFloat(formData.firstClassPrice)
         },
-        'Business Class': {
+        additionalProp2: {
           totalSeats: parseInt(formData.businessClassSeats),
           availableSeats: parseInt(formData.businessClassSeats),
           price: parseFloat(formData.businessClassPrice)
         },
-        'Economy Class': {
+        additionalProp3: {
           totalSeats: parseInt(formData.economyClassSeats),
           availableSeats: parseInt(formData.economyClassSeats),
           price: parseFloat(formData.economyClassPrice)
@@ -113,54 +108,63 @@ const TrainManagement: React.FC = () => {
       },
       status: formData.status,
       amenities: formData.amenities.split(',').map(s => s.trim()).filter(s => s),
-      createdAt: editingTrain?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      vehicleId: "A9F6E797-0FEE-4C04-A928-EDD34C6C2FE9",
+      driverId: "C9C2625A-9A38-4E83-A09A-DA5000608CCE"
     };
 
-    const updatedTrains = editingTrain
-      ? trains.map(t => t.id === editingTrain.id ? trainData : t)
-      : [...trains, trainData];
-
-    setTrains(updatedTrains);
-    LocalStorageManager.saveTrains(updatedTrains);
-    resetForm();
+    try {
+      if (editingTrain) {
+        await updateTrain(editingTrain.id, trainData);
+      } else {
+        await addTrain(trainData);
+      }
+      await loadTrains();
+      resetForm();
+    } catch (error) {
+      console.error('Failed to save train:', error);
+    }
   };
 
-  const handleDelete = (trainId: string) => {
+  const handleDelete = async (trainId: string) => {
     if (user?.role !== 'admin') {
       alert('Only administrators can delete trains');
       return;
     }
-    
+
     if (confirm('Are you sure you want to delete this train?')) {
-      const updatedTrains = trains.filter(t => t.id !== trainId);
-      setTrains(updatedTrains);
-      LocalStorageManager.saveTrains(updatedTrains);
+      try {
+        await deleteTrain(trainId);
+        await loadTrains();
+      } catch (error) {
+        console.error('Failed to delete train:', error);
+      }
     }
   };
 
   const handleEdit = (train: TrainType) => {
+     const viaArray = train.trainRouteVia?.$values || [];
     setEditingTrain(train);
     setFormData({
       name: train.name,
-      number: train.number,
-      from: train.route.from,
-      to: train.route.to,
-      via: train.route.via.join(', '),
-      departure: train.schedule.departure,
-      arrival: train.schedule.arrival,
-      duration: train.schedule.duration,
-      firstClassSeats: train.classes['First Class'].totalSeats.toString(),
-      businessClassSeats: train.classes['Business Class'].totalSeats.toString(),
-      economyClassSeats: train.classes['Economy Class'].totalSeats.toString(),
-      firstClassPrice: train.classes['First Class'].price.toString(),
-      businessClassPrice: train.classes['Business Class'].price.toString(),
-      economyClassPrice: train.classes['Economy Class'].price.toString(),
-      amenities: train.amenities.join(', '),
-      status: train.status
+    number: train.number,
+    from: train.routeFrom,
+    to: train.routeTo,
+    via: viaArray.map((via: { via: any; }) => via.via).join(', '),
+    departure: train.schedules?.$values?.[0]?.departureTime || '',
+    arrival: train.schedules?.$values?.[0]?.arrivalTime || '',
+    duration: train.schedules?.$values?.[0]?.duration || '',
+    firstClassSeats: train.trainClasses?.$values?.[0]?.totalSeats.toString() || '',
+    businessClassSeats: train.trainClasses?.$values?.[1]?.totalSeats.toString() || '',
+    economyClassSeats: train.trainClasses?.$values?.[2]?.totalSeats.toString() || '',
+    firstClassPrice: train.trainClasses?.$values?.[0]?.price.toString() || '',
+    businessClassPrice: train.trainClasses?.$values?.[1]?.price.toString() || '',
+    economyClassPrice: train.trainClasses?.$values?.[2]?.price.toString() || '',
+    amenities: train.amenities?.join(', ') || '',
+      status: (["active", "cancelled", "delayed"].includes(train.status) ? train.status : "active") as "active" | "cancelled" | "delayed"
     });
     setShowAddModal(true);
   };
+
 
   const resetForm = () => {
     setFormData({
@@ -210,7 +214,6 @@ const TrainManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Train Management</h1>
           <p className="text-gray-600 mt-2">Manage your fleet of trains and their schedules</p>
         </div>
-
         {/* Search and Filter Bar */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -226,7 +229,7 @@ const TrainManagement: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-3">
               <select
                 value={filterStatus}
@@ -238,7 +241,7 @@ const TrainManagement: React.FC = () => {
                 <option value="cancelled">Cancelled</option>
                 <option value="delayed">Delayed</option>
               </select>
-              
+
               <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -249,7 +252,6 @@ const TrainManagement: React.FC = () => {
             </div>
           </div>
         </div>
-
         {/* Trains Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTrains.map((train) => (
@@ -267,30 +269,28 @@ const TrainManagement: React.FC = () => {
                     </span>
                   </div>
                 </div>
-
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{train.route.from} → {train.route.to}</span>
+                    <span className="text-sm text-gray-600">{train.routeFrom} → {train.routeTo}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{train.schedule.departure} - {train.schedule.arrival}</span>
+                    <span className="text-sm text-gray-600">{train.schedules?.$values?.[0]?.departureTime} - {train.schedules?.$values?.[0]?.arrivalTime}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">
-                      From ${Math.min(...Object.values(train.classes).map(c => c.price))}
+                      From ${Math.min(...train.trainClasses?.$values?.map((c: { price: any; }) => c.price) || [0])}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">
-                      {Object.values(train.classes).reduce((sum, c) => sum + c.totalSeats, 0)} seats
+                      {train.trainClasses?.$values?.reduce((sum: any, c: { totalSeats: any; }) => sum + c.totalSeats, 0)} seats
                     </span>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
                   <button
                     onClick={() => handleEdit(train)}
@@ -313,15 +313,13 @@ const TrainManagement: React.FC = () => {
             </div>
           ))}
         </div>
-
         {filteredTrains.length === 0 && (
           <div className="text-center py-12">
-            <Train className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <TrainIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">No trains found</p>
           </div>
         )}
       </div>
-
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -330,7 +328,7 @@ const TrainManagement: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 {editingTrain ? 'Edit Train' : 'Add New Train'}
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -358,34 +356,40 @@ const TrainManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       From
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={formData.from}
                       onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    >
+                      <option value="">Select a route</option>
+                      {routes.map((route) => (
+                        <option key={route.id} value={route.from}>{route.from}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       To
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
                       value={formData.to}
                       onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    >
+                      <option value="">Select a route</option>
+                      {routes.map((route) => (
+                        <option key={route.id} value={route.to}>{route.to}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Via (comma-separated)
@@ -398,7 +402,6 @@ const TrainManagement: React.FC = () => {
                     placeholder="Station1, Station2, Station3"
                   />
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -438,7 +441,6 @@ const TrainManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -477,7 +479,6 @@ const TrainManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -516,7 +517,6 @@ const TrainManagement: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -545,7 +545,6 @@ const TrainManagement: React.FC = () => {
                     </select>
                   </div>
                 </div>
-
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"

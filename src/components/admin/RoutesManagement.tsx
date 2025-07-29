@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  MapPin,
-  DollarSign,
-  Clock,
-  ToggleLeft,
-  ToggleRight,
-  TrendingUp,
-  Users
-} from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, MapPin, DollarSign, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
+import { getAllRoutes, addRoute, updateRoute, deleteRoute } from '../../services/routeAPI';
 import { Route } from '../../types';
 
 const RoutesManagement: React.FC = () => {
@@ -44,14 +32,17 @@ const RoutesManagement: React.FC = () => {
     filterRoutes();
   }, [routes, searchTerm]);
 
-  const loadRoutes = () => {
-    const routesData = LocalStorageManager.getRoutes();
-    setRoutes(routesData);
+  const loadRoutes = async () => {
+    try {
+      const routesData = await getAllRoutes();
+      setRoutes(routesData.$values || routesData);
+    } catch (error) {
+      console.error('Failed to load routes:', error);
+    }
   };
 
   const filterRoutes = () => {
     let filtered = routes;
-
     if (searchTerm) {
       filtered = filtered.filter(route =>
         route.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -59,13 +50,12 @@ const RoutesManagement: React.FC = () => {
         route.to.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
     setFilteredRoutes(filtered);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const routeData: Route = {
       id: editingRoute?.id || Date.now().toString(),
       name: formData.name,
@@ -84,77 +74,66 @@ const RoutesManagement: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    const updatedRoutes = editingRoute
-      ? routes.map(r => r.id === editingRoute.id ? routeData : r)
-      : [...routes, routeData];
-
-    setRoutes(updatedRoutes);
-    LocalStorageManager.saveRoutes(updatedRoutes);
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      editingRoute ? 'route_updated' : 'route_created',
-      `${editingRoute ? 'Updated' : 'Created'} route: ${routeData.name}`
-    );
-    
-    resetForm();
+    try {
+      if (editingRoute) {
+        await updateRoute(editingRoute.id, routeData);
+      } else {
+        await addRoute(routeData);
+      }
+      await loadRoutes();
+      resetForm();
+    } catch (error) {
+      console.error('Failed to save route:', error);
+    }
   };
 
   const handleEdit = (route: Route) => {
-    setEditingRoute(route);
-    setFormData({
-      name: route.name,
-      from: route.from,
-      to: route.to,
-      via: route.via.join(', '),
-      distance: route.distance.toString(),
-      estimatedDuration: route.estimatedDuration,
-      firstClassPrice: route.pricing['First Class'].toString(),
-      businessClassPrice: route.pricing['Business Class'].toString(),
-      economyClassPrice: route.pricing['Economy Class'].toString(),
-      isActive: route.isActive
-    });
-    setShowCreateModal(true);
-  };
+  // Ensure route.via is treated as an array
+  const viaArray = route.via.values || route.via || [];
 
-  const handleDelete = (routeId: string) => {
+  setEditingRoute(route);
+  setFormData({
+    name: route.name,
+    from: route.from,
+    to: route.to,
+    via: Array.isArray(viaArray) ? viaArray.join(', ') : '',
+    distance: route.distance.toString(),
+    estimatedDuration: route.estimatedDuration,
+    firstClassPrice: route.pricing['First Class']?.toString() || '',
+    businessClassPrice: route.pricing['Business Class']?.toString() || '',
+    economyClassPrice: route.pricing['Economy Class']?.toString() || '',
+    isActive: route.isActive
+  });
+  setShowCreateModal(true);
+};
+
+  const handleDelete = async (routeId: string) => {
     if (user?.role !== 'admin') {
       alert('Only administrators can delete routes');
       return;
     }
-    
+
     if (confirm('Are you sure you want to delete this route?')) {
-      const updatedRoutes = routes.filter(r => r.id !== routeId);
-      setRoutes(updatedRoutes);
-      LocalStorageManager.saveRoutes(updatedRoutes);
-      
-      // Log activity
-      LocalStorageManager.logUserActivity(
-        user?.id || '',
-        'route_deleted',
-        `Deleted route: ${routeId}`
-      );
+      try {
+        await deleteRoute(routeId);
+        await loadRoutes();
+      } catch (error) {
+        console.error('Failed to delete route:', error);
+      }
     }
   };
 
-  const toggleRouteStatus = (routeId: string) => {
-    const updatedRoutes = routes.map(route =>
-      route.id === routeId 
-        ? { ...route, isActive: !route.isActive, updatedAt: new Date().toISOString() }
-        : route
-    );
-    
-    setRoutes(updatedRoutes);
-    LocalStorageManager.saveRoutes(updatedRoutes);
-    
-    // Log activity
+  const toggleRouteStatus = async (routeId: string) => {
     const route = routes.find(r => r.id === routeId);
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      'route_status_changed',
-      `${route?.isActive ? 'Disabled' : 'Enabled'} route: ${route?.name}`
-    );
+    if (route) {
+      const updatedRoute = { ...route, isActive: !route.isActive, updatedAt: new Date().toISOString() };
+      try {
+        await updateRoute(routeId, updatedRoute);
+        await loadRoutes();
+      } catch (error) {
+        console.error('Failed to update route status:', error);
+      }
+    }
   };
 
   const resetForm = () => {

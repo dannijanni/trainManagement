@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import LocalStorageManager from '../../utils/localStorage';
 import { Train as TrainType, SearchFilters } from '../../types';
+import { getAllTrains } from '../../services/trainAPI';
 
 interface TrainSearchProps {
   onBookTrain: (train: TrainType, selectedClass: string) => void;
@@ -37,36 +38,80 @@ const TrainSearch: React.FC<TrainSearchProps> = ({ onBookTrain }) => {
   }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setHasSearched(true);
+  e.preventDefault();
+  setLoading(true);
+  setHasSearched(true);
 
-    // Simulate API call delay
-    setTimeout(() => {
-      let results = trains.filter(train => train.status === 'active');
+  try {
+    // 1️⃣  fetch live data
+    const response = await getAllTrains();
+    const apiTrains = response.$values;
 
-      if (searchFilters.from) {
-        results = results.filter(train =>
-          train.route.from.toLowerCase().includes(searchFilters.from.toLowerCase())
-        );
-      }
+    // 2️⃣  map the API shape ➜ the TrainType shape your UI expects
+    const mapped: TrainType[] = apiTrains.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      number: t.number,
+      route: {
+        from: t.routeFrom,
+        to: t.routeTo,
+        via: t.trainRouteVia?.$values?.map((v: any) => v.via) || []
+      },
+      schedule: {
+        // take the first schedule for now (you can refine later)
+        departure: t.schedules?.$values?.[0]?.departureTime || '',
+        arrival:   t.schedules?.$values?.[0]?.arrivalTime   || '',
+        duration:  '' // optional – calculate if needed
+      },
+      classes: t.trainClasses?.$values?.reduce((acc: any, cls: any) => {
+        acc[cls.className] = {
+          totalSeats:     cls.totalSeats,
+          availableSeats: cls.availableSeats,
+          price:          cls.price
+        };
+        return acc;
+      }, {}) || {},
+      status: t.status,
+      amenities: [], // add mapping if the API ever returns amenities
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      vehicleId: t.vehicleId,
+      driverId: t.driverId
+    }));
 
-      if (searchFilters.to) {
-        results = results.filter(train =>
-          train.route.to.toLowerCase().includes(searchFilters.to.toLowerCase())
-        );
-      }
+    setTrains(mapped);
 
-      if (searchFilters.class) {
-        results = results.filter(train =>
+    // 3️⃣  keep the existing client-side filtering unchanged
+    let results = mapped.filter((train) => train.status === 'active');
+
+    if (searchFilters.from) {
+      results = results.filter((train) =>
+        train.route.from.toLowerCase().includes(searchFilters.from.toLowerCase())
+      );
+    }
+
+    if (searchFilters.to) {
+      results = results.filter((train) =>
+        train.route.to.toLowerCase().includes(searchFilters.to.toLowerCase())
+      );
+    }
+
+    if (searchFilters.class) {
+      results = results.filter(
+        (train) =>
           train.classes[searchFilters.class]?.availableSeats >= searchFilters.passengers
-        );
-      }
+      );
+    }
 
-      setSearchResults(results);
-      setLoading(false);
-    }, 1000);
-  };
+    setSearchResults(results);
+  } catch (err) {
+    console.error(err);
+    // optionally show toast / error message here
+    setSearchResults([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFilterChange = (key: keyof SearchFilters, value: string | number) => {
     setSearchFilters(prev => ({ ...prev, [key]: value }));

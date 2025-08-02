@@ -16,6 +16,11 @@ export interface User {
 }
 
 export interface Train {
+  routeFrom: any;
+  routeTo: any;
+  trainRouteVia: any;
+  schedules: any;
+  trainClasses: any;
   id: string;
   name: string;
   number: string;
@@ -130,6 +135,8 @@ export interface Seat {
 }
 
 export interface Booking {
+  passengers: any;
+  bookingSeats: any;
   id: string;
   trainId: string;
   userId: string;

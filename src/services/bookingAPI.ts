@@ -10,13 +10,13 @@ const apiClient = axios.create({
   },
 });
 
-export const createBooking = async (bookingData: any) => {
+export const createBooking = async (payload: any) => {
   try {
-    const response = await axios.post(`${Base_URL}/booking/create`, bookingData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating booking:', error);
-    throw error;
+    const { data } = await axios.post(`${Base_URL}/booking/create`, payload);
+    return data;          // Booking object returned by backend
+  } catch (err: any) {
+    // Optional: transform / log error
+    throw err?.response?.data || err;
   }
 };
 

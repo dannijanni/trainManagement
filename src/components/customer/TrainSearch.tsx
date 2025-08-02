@@ -14,6 +14,7 @@ import {
 import LocalStorageManager from '../../utils/localStorage';
 import { Train as TrainType, SearchFilters } from '../../types';
 import { getAllTrains } from '../../services/trainAPI';
+import { createBooking } from '../../services/bookingAPI';
 
 interface TrainSearchProps {
   onBookTrain: (train: TrainType, selectedClass: string) => void;

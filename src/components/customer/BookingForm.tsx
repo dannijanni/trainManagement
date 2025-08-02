@@ -8,15 +8,18 @@ import {
   ArrowLeft,
   CheckCircle,
   AlertCircle,
-  QrCode
+  MapPin,
+  Train
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
-import { Train, Booking } from '../../types';
+import { Train as TrainType, Booking } from '../../types';
+import { createBooking } from '../../services/bookingAPI';
+import { v4 as uuidv4 } from 'uuid';
 
 interface BookingFormProps {
-  train: Train;
+  train: TrainType;
   selectedClass: string;
+  travelDate: string;
   onBack: () => void;
   onBookingComplete: (booking: Booking) => void;
 }
@@ -24,13 +27,14 @@ interface BookingFormProps {
 const BookingForm: React.FC<BookingFormProps> = ({ 
   train, 
   selectedClass, 
+  travelDate,
   onBack, 
   onBookingComplete 
 }) => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [passengers, setPassengers] = useState([{
-    name: `${user?.firstName} ${user?.lastName}`,
+    name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
     age: 30,
     gender: 'male' as 'male' | 'female' | 'other',
     email: user?.email || '',
@@ -46,6 +50,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   });
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [selectedTravelDate, setSelectedTravelDate] = useState(travelDate);
 
   const classData = train.classes[selectedClass];
   const totalAmount = classData.price * passengers.length;
@@ -62,7 +67,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
         if (seats.length < seatCount) {
           seats.push({
             number: seatNumber,
-            isAvailable: Math.random() > 0.3, // 70% availability
+            isAvailable: Math.random() > 0.3,
             isSelected: false
           });
         }
@@ -112,45 +117,67 @@ const BookingForm: React.FC<BookingFormProps> = ({
     setError('');
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Validate travel date
+      if (!selectedTravelDate) {
+        throw new Error('Please select a valid travel date');
+      }
 
-      // Create booking
-      const booking: Booking = {
-        id: Date.now().toString(),
+      // Prepare booking data
+      const bookingData: Booking = {
         trainId: train.id,
         userId: user?.id || '',
-        passengerDetails: passengers,
+        passengerDetails: passengers.map(p => ({
+          name: p.name,
+          age: p.age,
+          gender: p.gender,
+          email: p.email,
+          phone: p.phone
+        })),
         seats: selectedSeats.map(seatNumber => ({
           class: selectedClass,
           seatNumber,
           price: classData.price
         })),
         totalAmount,
-        status: 'confirmed',
-        paymentStatus: 'completed',
-        paymentId: 'pay_' + Date.now(),
+        status: "confirmed",
+        paymentStatus: "completed",
+        paymentMethod: "online",
+        paymentDetails: {
+          method: "card",
+          transactionId: `TXN-${Date.now()}`,
+          cashierName: "",
+          counterLocation: "",
+          deferralReason: "",
+          paymentDeadline: ""
+        },
+        paymentId: uuidv4(),
         bookingDate: new Date().toISOString(),
-        travelDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-        qrCode: 'QR_' + Date.now()
+        travelDate: selectedTravelDate,
+        qrCode: `QR-${Date.now()}`,
+        createdBy: user?.id || '',
+        notes: "Online booking",
+        specialBookingCode: "",
+        isAdminBooking: false,
+        passengers: undefined,
+        bookingSeats: undefined,
+        id: ''
       };
 
-      // Save booking
-      const bookings = LocalStorageManager.getBookings();
-      bookings.push(booking);
-      LocalStorageManager.saveBookings(bookings);
-
-      // Update train availability
-      const trains = LocalStorageManager.getTrains();
-      const trainIndex = trains.findIndex(t => t.id === train.id);
-      if (trainIndex !== -1) {
-        trains[trainIndex].classes[selectedClass].availableSeats -= passengers.length;
-        LocalStorageManager.saveTrains(trains);
+      // Create booking via API
+      const createdBooking = await createBooking(bookingData);
+      
+      if (createdBooking) {
+        onBookingComplete(createdBooking);
+      } else {
+        throw new Error('Booking creation failed');
       }
-
-      onBookingComplete(booking);
     } catch (err) {
-      setError('Payment failed. Please try again.');
+      console.error('Booking error:', err);
+      setError(
+        typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message?: string }).message)
+          : 'Payment failed. Please try again.'
+      );
     } finally {
       setProcessing(false);
     }
@@ -159,12 +186,38 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">Trip Details</h3>
-        <div className="text-sm text-blue-800">
-          <p>{train.name} ({train.number})</p>
-          <p>{train.route.from} → {train.route.to}</p>
-          <p>Class: {selectedClass}</p>
-          <p>Price: ${classData.price} per person</p>
+        <div className="flex items-start gap-3">
+          <div className="bg-blue-100 p-2 rounded-lg">
+            <Train className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-1">Trip Details</h3>
+            <div className="text-sm text-blue-800 space-y-1">
+              <p className="font-medium">{train.name} ({train.number})</p>
+              <p className="flex items-center">
+                <MapPin className="h-4 w-4 mr-1" />
+                {train.route.from} → {train.route.to}
+              </p>
+              <p><span className="font-medium">Class:</span> {selectedClass}</p>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <div>
+                  <label className="block text-sm font-medium text-blue-800 mb-1">
+                    Travel Date
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedTravelDate}
+                    onChange={(e) => setSelectedTravelDate(e.target.value)}
+                    className="px-2 py-1 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+              </div>
+              <p><span className="font-medium">Price:</span> ${classData.price} per person</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -314,7 +367,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
 
         <div className="max-w-md mx-auto">
           <div className="grid grid-cols-4 gap-2 mb-4">
-            {availableSeats.map((seat, index) => (
+            {availableSeats.map((seat) => (
               <button
                 key={seat.number}
                 onClick={() => seat.isAvailable && handleSeatSelect(seat.number)}
@@ -384,6 +437,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
           <div className="flex justify-between">
             <span>Class:</span>
             <span>{selectedClass}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Travel Date:</span>
+            <span>{new Date(travelDate).toLocaleDateString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Passengers:</span>

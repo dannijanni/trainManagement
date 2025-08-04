@@ -5,7 +5,7 @@ import {
   Plus, 
   Edit2, 
   Trash2, 
-  Download,
+  Download, 
   CheckCircle,
   XCircle,
   Clock,
@@ -16,48 +16,84 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
+import axios from 'axios';
 import { Booking, Train, User } from '../../types';
 
 const BookingsManagement: React.FC = () => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [trains, setTrains] = useState<Train[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [selectedBookings, setSelectedBookings] = useState<string[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellingBooking, setCancellingBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    loadData();
+    fetchBookings();
   }, []);
 
   useEffect(() => {
     filterBookings();
   }, [bookings, searchTerm, statusFilter, dateFilter]);
 
-  const loadData = () => {
-    const bookingsData = LocalStorageManager.getBookings();
-    const trainsData = LocalStorageManager.getTrains();
-    const usersData = LocalStorageManager.getUsers();
-    
-    setBookings(bookingsData);
-    setTrains(trainsData);
-    setUsers(usersData);
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await axios.get('http://localhost:5049/api/booking/GetAllbookings');
+      const formattedBookings = response.data.$values.map((booking: any) => ({
+        id: booking.id,
+        trainId: booking.trainId,
+        userId: booking.userId,
+        passengerDetails: booking.passengers.$values.map((passenger: any) => ({
+          name: passenger.name,
+          age: passenger.age,
+          gender: passenger.gender,
+          email: passenger.email,
+          phone: passenger.phone
+        })),
+        seats: booking.bookingSeats.$values.map((seat: any) => ({
+          class: seat.class,
+          seatNumber: seat.seatNumber,
+          price: seat.price
+        })),
+        totalAmount: booking.totalAmount,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        paymentId: booking.paymentId,
+        bookingDate: booking.bookingDate,
+        travelDate: booking.travelDate,
+        qrCode: booking.qrcode,
+        cancellationReason: booking.cancellationReason,
+        cancellationDate: booking.cancellationDate,
+        refundAmount: booking.refundAmount,
+        refundStatus: booking.refundStatus,
+        refundProcessedBy: booking.refundProcessedBy,
+        createdBy: booking.createdBy,
+        notes: booking.notes,
+        specialBookingCode: booking.specialBookingCode,
+        isAdminBooking: booking.isAdminBooking
+      }));
+      setBookings(formattedBookings);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to fetch bookings');
+      setLoading(false);
+      console.error('Error fetching bookings:', err);
+    }
   };
 
   const filterBookings = () => {
     let filtered = bookings;
-
     if (searchTerm) {
       filtered = filtered.filter(booking =>
         booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -67,17 +103,14 @@ const BookingsManagement: React.FC = () => {
         )
       );
     }
-
     if (statusFilter !== 'all') {
       filtered = filtered.filter(booking => booking.status === statusFilter);
     }
-
     if (dateFilter) {
       filtered = filtered.filter(booking => 
         booking.travelDate.startsWith(dateFilter)
       );
     }
-
     setFilteredBookings(filtered);
   };
 
@@ -103,16 +136,6 @@ const BookingsManagement: React.FC = () => {
     }
   };
 
-  const getTrainName = (trainId: string) => {
-    const train = trains.find(t => t.id === trainId);
-    return train ? `${train.name} (${train.number})` : 'Unknown Train';
-  };
-
-  const getUserName = (userId: string) => {
-    const userData = users.find(u => u.id === userId);
-    return userData ? `${userData.firstName} ${userData.lastName}` : 'Unknown User';
-  };
-
   const handleSelectBooking = (bookingId: string) => {
     setSelectedBookings(prev => 
       prev.includes(bookingId) 
@@ -129,35 +152,6 @@ const BookingsManagement: React.FC = () => {
     );
   };
 
-  const handleBulkAction = (action: string) => {
-    if (selectedBookings.length === 0) return;
-
-    const updatedBookings = bookings.map(booking => {
-      if (selectedBookings.includes(booking.id)) {
-        switch (action) {
-          case 'confirm':
-            return { ...booking, status: 'confirmed' as const };
-          case 'cancel':
-            return { ...booking, status: 'cancelled' as const };
-          default:
-            return booking;
-        }
-      }
-      return booking;
-    });
-
-    setBookings(updatedBookings);
-    LocalStorageManager.saveBookings(updatedBookings);
-    setSelectedBookings([]);
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      'bulk_booking_update',
-      `Updated ${selectedBookings.length} bookings with action: ${action}`
-    );
-  };
-
   const handleCancelBooking = (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (booking) {
@@ -167,46 +161,47 @@ const BookingsManagement: React.FC = () => {
     }
   };
 
-  const processCancellation = () => {
+  const processCancellation = async () => {
     if (!cancellingBooking) return;
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // First, make the DELETE request to cancel the booking
+      const response = await axios.delete(
+        `http://localhost:5049/api/booking/${cancellingBooking.id}`
+      );
 
-    const updatedBookings = bookings.map(booking =>
-      booking.id === cancellingBooking.id 
-        ? { 
-            ...booking, 
-            status: 'cancelled' as const,
-            cancellationReason: cancelReason,
-            cancellationDate: new Date().toISOString(),
-            refundAmount: parseFloat(refundAmount),
-            refundStatus: 'pending' as const,
-            refundProcessedBy: user?.id
-          }
-        : booking
-    );
-    
-    setBookings(updatedBookings);
-    LocalStorageManager.saveBookings(updatedBookings);
-    
-    // Update train seat availability
-    const trains = LocalStorageManager.getTrains();
-    const trainIndex = trains.findIndex(t => t.id === cancellingBooking.trainId);
-    if (trainIndex !== -1) {
-      cancellingBooking.seats.forEach(seat => {
-        if (trains[trainIndex].classes[seat.class]) {
-          trains[trainIndex].classes[seat.class].availableSeats += 1;
-        }
-      });
-      LocalStorageManager.saveTrains(trains);
+      if (response.data === 'Booking cancelled') {
+        setSuccessMessage('Booking cancelled successfully');
+        
+        // Then update the booking locally with cancellation details
+        const updatedBookings = bookings.map(booking => 
+          booking.id === cancellingBooking.id
+            ? {
+                ...booking,
+                status: 'cancelled' as Booking['status'],
+                cancellationReason: cancelReason,
+                cancellationDate: new Date().toISOString(),
+                refundAmount: parseFloat(refundAmount),
+                refundStatus: 'pending' as 'pending' | 'processed' | 'failed' | undefined
+              }
+            : booking
+        );
+
+        setBookings(updatedBookings);
+        resetCancelModal();
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      setError('Failed to cancel booking');
+    } finally {
+      setLoading(false);
     }
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      'booking_cancelled',
-      `Cancelled booking ${cancellingBooking.id} with refund $${refundAmount}`
-    );
-    
-    resetCancelModal();
   };
 
   const resetCancelModal = () => {
@@ -216,37 +211,44 @@ const BookingsManagement: React.FC = () => {
     setShowCancelModal(false);
   };
 
-  const processRefund = (bookingId: string) => {
-    const updatedBookings = bookings.map(booking =>
-      booking.id === bookingId 
-        ? { ...booking, refundStatus: 'processed' as const }
-        : booking
-    );
-    
-    setBookings(updatedBookings);
-    LocalStorageManager.saveBookings(updatedBookings);
-    
-    // Log activity
-    LocalStorageManager.logUserActivity(
-      user?.id || '',
-      'refund_processed',
-      `Processed refund for booking ${bookingId}`
-    );
+  const processRefund = async (bookingId: string) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // This would be a PUT request to your refund endpoint
+      // For now, we'll just update the local state
+      const updatedBookings = bookings.map(booking => 
+        booking.id === bookingId
+          ? { ...booking, refundStatus: 'processed' }
+          : booking
+      );
+
+      setBookings(updatedBookings);
+      setSuccessMessage('Refund processed successfully');
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error('Error processing refund:', err);
+      setError('Failed to process refund');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportBookings = () => {
     const csvContent = [
-      ['Booking ID', 'Train', 'Passenger', 'Travel Date', 'Status', 'Amount'].join(','),
+      ['Booking ID', 'Train ID', 'Passenger', 'Travel Date', 'Status', 'Amount'].join(','),
       ...filteredBookings.map(booking => [
         booking.id,
-        getTrainName(booking.trainId),
+        booking.trainId,
         booking.passengerDetails[0]?.name || '',
         booking.travelDate,
         booking.status,
         booking.totalAmount
       ].join(','))
     ].join('\n');
-
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -256,6 +258,34 @@ const BookingsManagement: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  if (loading && !showCancelModal) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 text-blue-500 animate-spin mx-auto" />
+          <p className="mt-2 text-gray-600">Loading bookings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !bookings.length) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button 
+            onClick={fetchBookings}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -263,6 +293,20 @@ const BookingsManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Bookings Management</h1>
           <p className="text-gray-600 mt-2">Manage all customer bookings and reservations</p>
         </div>
+        
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-100 text-green-800 rounded-lg">
+            {successMessage}
+          </div>
+        )}
+        
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
+            {error}
+          </div>
+        )}
 
         {/* Search and Filter Bar */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
@@ -279,7 +323,7 @@ const BookingsManagement: React.FC = () => {
                 />
               </div>
             </div>
-            
+                        
             <div className="flex gap-3 flex-wrap">
               <select
                 value={statusFilter}
@@ -293,14 +337,14 @@ const BookingsManagement: React.FC = () => {
                 <option value="waitlisted">Waitlisted</option>
                 <option value="completed">Completed</option>
               </select>
-              
+                            
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              
+                            
               <button
                 onClick={exportBookings}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -308,45 +352,10 @@ const BookingsManagement: React.FC = () => {
                 <Download className="h-4 w-4" />
                 Export
               </button>
-              
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => window.location.hash = '#admin-booking'}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Admin Booking
-                </button>
-              )}
             </div>
           </div>
-
-          {/* Bulk Actions */}
-          {selectedBookings.length > 0 && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-blue-800">
-                  {selectedBookings.length} booking(s) selected
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleBulkAction('confirm')}
-                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    onClick={() => handleBulkAction('cancel')}
-                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-
+        
         {/* Bookings Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -365,7 +374,7 @@ const BookingsManagement: React.FC = () => {
                     Booking ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Train
+                    Train ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Passenger
@@ -405,7 +414,7 @@ const BookingsManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {getTrainName(booking.trainId)}
+                        {booking.trainId.slice(0, 8)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -438,12 +447,6 @@ const BookingsManagement: React.FC = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => setEditingBooking(booking)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
                         {booking.status !== 'cancelled' && (
                           <button
                             onClick={() => handleCancelBooking(booking.id)}
@@ -468,7 +471,6 @@ const BookingsManagement: React.FC = () => {
               </tbody>
             </table>
           </div>
-
           {filteredBookings.length === 0 && (
             <div className="text-center py-12">
               <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -476,7 +478,7 @@ const BookingsManagement: React.FC = () => {
             </div>
           )}
         </div>
-
+        
         {/* View Booking Modal */}
         {viewingBooking && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -493,12 +495,11 @@ const BookingsManagement: React.FC = () => {
                     <XCircle className="h-6 w-6" />
                   </button>
                 </div>
-
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Train</label>
-                      <p className="mt-1 text-sm text-gray-900">{getTrainName(viewingBooking.trainId)}</p>
+                      <label className="block text-sm font-medium text-gray-700">Train ID</label>
+                      <p className="mt-1 text-sm text-gray-900">{viewingBooking.trainId}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Travel Date</label>
@@ -520,7 +521,6 @@ const BookingsManagement: React.FC = () => {
                       <p className="mt-1 text-sm font-semibold text-gray-900">${viewingBooking.totalAmount}</p>
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">Passengers</label>
                     <div className="space-y-2">
@@ -540,7 +540,6 @@ const BookingsManagement: React.FC = () => {
                       ))}
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">Seats</label>
                     <div className="flex flex-wrap gap-2">
@@ -556,7 +555,7 @@ const BookingsManagement: React.FC = () => {
             </div>
           </div>
         )}
-
+        
         {/* Cancellation Modal */}
         {showCancelModal && cancellingBooking && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -565,7 +564,7 @@ const BookingsManagement: React.FC = () => {
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
                   Cancel Booking #{cancellingBooking.id.slice(0, 8)}
                 </h2>
-                
+                                
                 <div className="space-y-4">
                   <div className="bg-yellow-50 p-4 rounded-lg">
                     <p className="text-sm text-yellow-800">
@@ -575,7 +574,6 @@ const BookingsManagement: React.FC = () => {
                       <strong>Travel Date:</strong> {new Date(cancellingBooking.travelDate).toLocaleDateString()}
                     </p>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Cancellation Reason
@@ -589,7 +587,6 @@ const BookingsManagement: React.FC = () => {
                       placeholder="Enter reason for cancellation..."
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Refund Amount ($)
@@ -605,28 +602,27 @@ const BookingsManagement: React.FC = () => {
                       step="0.01"
                     />
                   </div>
-
                   <div className="bg-red-50 p-4 rounded-lg">
                     <p className="text-sm text-red-800">
-                      This action will cancel the booking and initiate a refund process. 
+                      This action will cancel the booking and initiate a refund process.
                       The seats will be made available for other customers.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex justify-end gap-3 pt-6">
                   <button
                     onClick={resetCancelModal}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    disabled={loading}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={processCancellation}
-                    disabled={!cancelReason.trim() || !refundAmount}
+                    disabled={!cancelReason.trim() || !refundAmount || loading}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Process Cancellation
+                    {loading ? 'Processing...' : 'Confirm Cancellation'}
                   </button>
                 </div>
               </div>

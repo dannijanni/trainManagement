@@ -12,7 +12,7 @@ import ScheduleManagement from './components/admin/ScheduleManagement';
 import UserManagement from './components/admin/UserManagement';
 import SystemSettings from './components/admin/SystemSettings';
 import DriverManagement from './components/admin/DriverManagement';
-import PaymentManagement from './components/admin/PaymentManagement';
+// import PaymentManagement from './components/admin/PaymentManagement';
 import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import TrainSearch from './components/customer/TrainSearch';
 import BookingForm from './components/customer/BookingForm';
@@ -97,8 +97,8 @@ const AppContent: React.FC = () => {
         return <BookingsManagement />;
       case 'drivers':
         return <DriverManagement />;
-      case 'payments':
-        return <PaymentManagement />;
+      // case 'payments':
+      //   return <PaymentManagement />;
       case 'analytics':
         return <AnalyticsDashboard />;
       case 'users':

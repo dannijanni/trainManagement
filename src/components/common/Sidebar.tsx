@@ -60,12 +60,12 @@ const sidebarItems: SidebarItem[] = [
     icon: UserCheck,
     roles: ['admin', 'manager']
   },
-  {
-    id: 'payments',
-    label: 'Payment Management',
-    icon: CreditCard,
-    roles: ['admin', 'manager']
-  },
+  // {
+  //   id: 'payments',
+  //   label: 'Payment Management',
+  //   icon: CreditCard,
+  //   roles: ['admin', 'manager']
+  // },
   {
     id: 'analytics',
     label: 'Analytics Dashboard',

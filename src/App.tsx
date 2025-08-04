@@ -113,8 +113,7 @@ const AppContent: React.FC = () => {
             train={selectedTrain}
             selectedClass={selectedClass}
             onBack={handleBackToSearch}
-            onBookingComplete={handleBookingComplete}
-          />
+            onBookingComplete={handleBookingComplete} travelDate={''}          />
         ) : (
           <TrainSearch onBookTrain={handleBookTrain} />
         );

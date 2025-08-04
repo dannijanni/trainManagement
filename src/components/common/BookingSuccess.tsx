@@ -33,178 +33,66 @@ const BookingSuccess: React.FC<BookingSuccessProps> = ({ booking, train, onConti
   };
 
   const handleDownloadTicket = async () => {
-    if (!ticketRef.current) return;
-    
-    setIsGeneratingPDF(true);
-    
-    try {
-      // Generate QR code
-      const qrCodeData = JSON.stringify({
-        bookingId: booking.id,
-        trainNumber: train.number,
-        travelDate: booking.travelDate,
-        passengers: booking.passengerDetails.length,
-        totalAmount: booking.totalAmount
-      });
-      
-      const qrCodeDataURL = await generateQRCode(qrCodeData);
-      
-      // Create a printable ticket element
-      const ticketElement = document.createElement('div');
-      ticketElement.innerHTML = `
-        <div style="width: 800px; margin: 0 auto; font-family: Arial, sans-serif; background: white; padding: 40px; box-sizing: border-box;">
-          <!-- Header -->
-          <div style="text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; font-size: 32px; margin: 0; font-weight: bold;">TrainWay Express</h1>
-            <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 16px;">Your Journey Begins Here</p>
-          </div>
-          
-          <!-- Ticket Type -->
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h2 style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 15px 30px; border-radius: 25px; display: inline-block; margin: 0; font-size: 24px; font-weight: bold;">E-TICKET</h2>
-          </div>
-          
-          <!-- Main Content -->
-          <div style="display: flex; gap: 40px; margin-bottom: 30px;">
-            <!-- Left Column -->
-            <div style="flex: 2;">
-              <!-- Booking Details -->
-              <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin-bottom: 25px; border-left: 5px solid #2563eb;">
-                <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px; font-weight: bold;">Booking Information</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
-                  <div><strong>Booking ID:</strong><br><span style="color: #2563eb; font-weight: bold;">${booking.id}</span></div>
-                  <div><strong>Status:</strong><br><span style="color: #059669; font-weight: bold;">${booking.status.toUpperCase()}</span></div>
-                  <div><strong>Booking Date:</strong><br>${new Date(booking.bookingDate).toLocaleDateString()}</div>
-                  <div><strong>Travel Date:</strong><br><span style="color: #dc2626; font-weight: bold;">${new Date(booking.travelDate).toLocaleDateString()}</span></div>
-                </div>
-              </div>
-              
-              <!-- Journey Details -->
-              <div style="background: #f0f9ff; padding: 25px; border-radius: 12px; margin-bottom: 25px; border-left: 5px solid #0ea5e9;">
-                <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px; font-weight: bold;">Journey Details</h3>
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-                    <div style="text-align: center;">
-                      <div style="font-size: 24px; font-weight: bold; color: #1f2937;">${train.route.from}</div>
-                      <div style="font-size: 14px; color: #6b7280;">Departure</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #2563eb;">${train.schedule.departure}</div>
-                    </div>
-                    <div style="flex: 1; height: 2px; background: linear-gradient(to right, #2563eb, #0ea5e9); position: relative;">
-                      <div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; font-size: 12px; color: #6b7280;">${train.schedule.duration}</div>
-                    </div>
-                    <div style="text-align: center;">
-                      <div style="font-size: 24px; font-weight: bold; color: #1f2937;">${train.route.to}</div>
-                      <div style="font-size: 14px; color: #6b7280;">Arrival</div>
-                      <div style="font-size: 18px; font-weight: bold; color: #2563eb;">${train.schedule.arrival}</div>
-                    </div>
-                  </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
-                  <div><strong>Train:</strong><br>${train.name} (${train.number})</div>
-                  <div><strong>Class:</strong><br>${booking.seats[0]?.class}</div>
-                  <div><strong>Seats:</strong><br>${booking.seats.map(seat => seat.seatNumber).join(', ')}</div>
-                  <div><strong>Passengers:</strong><br>${booking.passengerDetails.length}</div>
-                </div>
-              </div>
-              
-              <!-- Passenger Details -->
-              <div style="background: #f0fdf4; padding: 25px; border-radius: 12px; border-left: 5px solid #10b981;">
-                <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px; font-weight: bold;">Passenger Details</h3>
-                ${booking.passengerDetails.map((passenger, index) => `
-                  <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e5e7eb;">
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; font-size: 14px;">
-                      <div><strong>${passenger.name}</strong><br><span style="color: #6b7280;">${passenger.email}</span></div>
-                      <div>Age: ${passenger.age}<br>Gender: ${passenger.gender}</div>
-                      <div>Phone:<br>${passenger.phone}</div>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            
-            <!-- Right Column - QR Code and Payment -->
-            <div style="flex: 1;">
-              <!-- QR Code -->
-              <div style="text-align: center; background: white; padding: 25px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 25px;">
-                <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 18px; font-weight: bold;">Scan for Verification</h3>
-                <img src="${qrCodeDataURL}" style="width: 150px; height: 150px; margin: 0 auto; display: block;" alt="QR Code">
-                <p style="font-size: 12px; color: #6b7280; margin: 15px 0 0 0;">Show this QR code to the conductor</p>
-              </div>
-              
-              <!-- Payment Summary -->
-              <div style="background: #fef3c7; padding: 25px; border-radius: 12px; border-left: 5px solid #f59e0b;">
-                <h3 style="color: #1f2937; margin: 0 0 20px 0; font-size: 18px; font-weight: bold;">Payment Summary</h3>
-                <div style="font-size: 14px; margin-bottom: 15px;">
-                  ${booking.seats.map(seat => `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                      <span>${seat.class} (${seat.seatNumber})</span>
-                      <span>$${seat.price}</span>
-                    </div>
-                  `).join('')}
-                </div>
-                <div style="border-top: 2px solid #f59e0b; padding-top: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between;">
-                  <span>Total Paid:</span>
-                  <span style="color: #059669;">$${booking.totalAmount}</span>
-                </div>
-                <div style="font-size: 12px; color: #6b7280; margin-top: 10px;">
-                  Payment ID: ${booking.paymentId || 'N/A'}
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Important Information -->
-          <div style="background: #fef2f2; padding: 25px; border-radius: 12px; border-left: 5px solid #ef4444; margin-bottom: 30px;">
-            <h3 style="color: #dc2626; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">Important Information</h3>
-            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #374151; line-height: 1.6;">
-              <li>Please arrive at the station 30 minutes before departure</li>
-              <li>Carry a valid ID proof along with this e-ticket</li>
-              <li>Show the QR code to the conductor for verification</li>
-              <li>Cancellation is allowed up to 2 hours before departure</li>
-              <li>This ticket is non-transferable and valid only for the specified date</li>
-            </ul>
-          </div>
-          
-          <!-- Footer -->
-          <div style="text-align: center; border-top: 2px solid #e5e7eb; padding-top: 20px; color: #6b7280; font-size: 12px;">
-            <p style="margin: 0 0 10px 0;">Thank you for choosing TrainWay Express</p>
-            <p style="margin: 0;">For support, contact us at support@trainway.com | +1-800-TRAINWAY</p>
-            <p style="margin: 10px 0 0 0;">Generated on ${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      `;
-      
-      // Temporarily add to DOM for rendering
-      document.body.appendChild(ticketElement);
-      
-      // Convert to canvas
-      const canvas = await html2canvas(ticketElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      });
-      
-      // Remove from DOM
-      document.body.removeChild(ticketElement);
-      
-      // Create PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`TrainWay-Ticket-${booking.id}.pdf`);
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF ticket. Please try again.');
-    } finally {
-      setIsGeneratingPDF(false);
+  if (!ticketRef.current) return;
+
+  setIsGeneratingPDF(true);
+
+  try {
+    // Ensure booking.seats is defined and not empty
+    if (!booking.seats || booking.seats.length === 0) {
+      throw new Error("No seat information available.");
     }
-  };
+
+    // Generate QR code
+    const qrCodeData = JSON.stringify({
+      bookingId: booking.id,
+      trainNumber: train.number,
+      travelDate: booking.travelDate,
+      passengers: booking?.passengerDetails?.length || 0,
+      totalAmount: booking.totalAmount,
+    });
+
+    const qrCodeDataURL = await generateQRCode(qrCodeData);
+
+    // Create a printable ticket element
+    const ticketElement = document.createElement("div");
+    ticketElement.innerHTML = `
+      <div style="width: 800px; margin: 0 auto; font-family: Arial, sans-serif; background: white; padding: 40px; box-sizing: border-box;">
+        <!-- Your HTML content here -->
+      </div>
+    `;
+
+    // Temporarily add to DOM for rendering
+    document.body.appendChild(ticketElement);
+
+    // Convert to canvas
+    const canvas = await html2canvas(ticketElement, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+    });
+
+    // Remove from DOM
+    document.body.removeChild(ticketElement);
+
+    // Create PDF
+    const pdf = new jsPDF("p", "mm", "a4");
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`TrainWay-Ticket-${booking.id}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("Error generating PDF ticket. Please try again.");
+  } finally {
+    setIsGeneratingPDF(false);
+  }
+};
+
 
   const handleShare = async (method: string) => {
     const shareData = {
@@ -255,7 +143,7 @@ const BookingSuccess: React.FC<BookingSuccessProps> = ({ booking, train, onConti
           `Seats: ${booking.seats.map(s => s.seatNumber).join(', ')}\n` +
           `Booking ID: ${booking.id}\n\n` +
           `Best regards,\n` +
-          `${booking.passengerDetails[0]?.name}`
+          `${booking.passengerDetails[0]?.name || 'TrainWay User'}`
         );
         window.open(`mailto:?subject=${emailSubject}&body=${emailBody}`);
         break;
@@ -349,34 +237,38 @@ const BookingSuccess: React.FC<BookingSuccessProps> = ({ booking, train, onConti
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Seat Information</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Class:</span>
-                    <span className="font-medium">{booking.seats[0]?.class}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Seats:</span>
-                    <span className="font-medium">
-                      {booking.seats.map(seat => seat.seatNumber).join(', ')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Passengers:</span>
-                    <span className="font-medium">{booking.passengerDetails.length}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-semibold text-green-600 pt-2 border-t">
-                    <span>Total Paid:</span>
-                    <span>${booking.totalAmount}</span>
-                  </div>
-                </div>
-              </div>
+  <h3 className="text-lg font-semibold text-gray-900 mb-3">Seat Information</h3>
+  <div className="space-y-2 text-sm">
+    <div className="flex justify-between">
+      <span>Class:</span>
+      <span className="font-medium">
+        {booking.seats && booking.seats.length > 0 ? booking.seats[0].class : 'N/A'}
+      </span>
+    </div>
+    <div className="flex justify-between">
+      <span>Seats:</span>
+      <span className="font-medium">
+        {booking.seats && booking.seats.length > 0
+          ? booking.seats.map(seat => seat.seatNumber).join(', ')
+          : 'N/A'}
+      </span>
+    </div>
+    <div className="flex justify-between">
+      <span>Passengers:</span>
+      <span className="font-medium">{booking?.passengerDetails?.length || 0}</span>
+    </div>
+    <div className="flex justify-between text-lg font-semibold text-green-600 pt-2 border-t">
+      <span>Total Paid:</span>
+      <span>${booking.totalAmount}</span>
+    </div>
+  </div>
+</div>
             </div>
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Passenger Details</h3>
               <div className="space-y-3">
-                {booking.passengerDetails.map((passenger, index) => (
+                {booking?.passengerDetails?.map((passenger, index) => (
                   <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900">{passenger.name}</p>

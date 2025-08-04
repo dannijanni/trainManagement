@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  CreditCard, 
+import {
+  User,
+  Mail,
+  Phone,
+  CreditCard,
   Calendar,
   ArrowLeft,
   CheckCircle,
@@ -24,12 +24,12 @@ interface BookingFormProps {
   onBookingComplete: (booking: Booking) => void;
 }
 
-const BookingForm: React.FC<BookingFormProps> = ({ 
-  train, 
-  selectedClass, 
+const BookingForm: React.FC<BookingFormProps> = ({
+  train,
+  selectedClass,
   travelDate,
-  onBack, 
-  onBookingComplete 
+  onBack,
+  onBookingComplete
 }) => {
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
@@ -60,7 +60,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
     const seatCount = classData.totalSeats;
     const seatsPerRow = 4;
     const rows = Math.ceil(seatCount / seatsPerRow);
-    
+
     for (let row = 1; row <= rows; row++) {
       for (let seat = 1; seat <= seatsPerRow; seat++) {
         const seatNumber = `${row}${String.fromCharCode(64 + seat)}`;
@@ -73,7 +73,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
         }
       }
     }
-    
+
     return seats;
   };
 
@@ -88,8 +88,8 @@ const BookingForm: React.FC<BookingFormProps> = ({
   };
 
   const handlePassengerChange = (index: number, field: string, value: string | number) => {
-    setPassengers(prev => 
-      prev.map((passenger, i) => 
+    setPassengers(prev =>
+      prev.map((passenger, i) =>
         i === index ? { ...passenger, [field]: value } : passenger
       )
     );
@@ -115,14 +115,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const handlePayment = async () => {
     setProcessing(true);
     setError('');
-
     try {
-      // Validate travel date
       if (!selectedTravelDate) {
         throw new Error('Please select a valid travel date');
       }
 
-      // Prepare booking data
       const bookingData: Booking = {
         trainId: train.id,
         userId: user?.id || '',
@@ -163,9 +160,8 @@ const BookingForm: React.FC<BookingFormProps> = ({
         id: ''
       };
 
-      // Create booking via API
       const createdBooking = await createBooking(bookingData);
-      
+
       if (createdBooking) {
         onBookingComplete(createdBooking);
       } else {
@@ -220,7 +216,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           </div>
         </div>
       </div>
-
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Passenger Details</h3>
@@ -231,7 +226,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
             Add Passenger
           </button>
         </div>
-
         <div className="space-y-4">
           {passengers.map((passenger, index) => (
             <div key={index} className="p-4 border border-gray-200 rounded-lg">
@@ -246,7 +240,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                   </button>
                 )}
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -260,7 +253,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Age
@@ -275,7 +267,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Gender
@@ -290,7 +281,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     <option value="other">Other</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
@@ -303,7 +293,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phone
@@ -321,7 +310,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           ))}
         </div>
       </div>
-
       <div className="flex justify-between">
         <button
           onClick={onBack}
@@ -347,7 +335,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Select Seats ({selectedSeats.length}/{passengers.length})
         </h3>
-        
+
         <div className="bg-gray-50 p-4 rounded-lg mb-4">
           <div className="flex items-center justify-center gap-8 text-sm">
             <div className="flex items-center gap-2">
@@ -364,7 +352,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
             </div>
           </div>
         </div>
-
         <div className="max-w-md mx-auto">
           <div className="grid grid-cols-4 gap-2 mb-4">
             {availableSeats.map((seat) => (
@@ -374,10 +361,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 disabled={!seat.isAvailable}
                 className={`
                   w-12 h-12 rounded text-xs font-medium border-2 transition-colors
-                  ${selectedSeats.includes(seat.number) 
-                    ? 'bg-blue-500 text-white border-blue-600' 
-                    : seat.isAvailable 
-                      ? 'bg-green-500 text-white border-green-600 hover:bg-green-600' 
+                  ${selectedSeats.includes(seat.number)
+                    ? 'bg-blue-500 text-white border-blue-600'
+                    : seat.isAvailable
+                      ? 'bg-green-500 text-white border-green-600 hover:bg-green-600'
                       : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed'
                   }
                 `}
@@ -387,7 +374,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
             ))}
           </div>
         </div>
-
         {selectedSeats.length > 0 && (
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-900 mb-2">Selected Seats:</h4>
@@ -401,7 +387,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           </div>
         )}
       </div>
-
       <div className="flex justify-between">
         <button
           onClick={() => setCurrentStep(1)}
@@ -456,17 +441,15 @@ const BookingForm: React.FC<BookingFormProps> = ({
           </div>
         </div>
       </div>
-
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Information</h3>
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
             <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
             <span className="text-red-700 text-sm">{error}</span>
           </div>
         )}
-
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -481,7 +464,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -496,7 +478,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 CVV
@@ -511,7 +492,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cardholder Name
@@ -525,7 +505,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Billing Address
@@ -541,7 +520,6 @@ const BookingForm: React.FC<BookingFormProps> = ({
           </div>
         </div>
       </div>
-
       <div className="flex justify-between">
         <button
           onClick={() => setCurrentStep(2)}
@@ -578,21 +556,18 @@ const BookingForm: React.FC<BookingFormProps> = ({
           <h1 className="text-3xl font-bold text-gray-900">Book Your Journey</h1>
           <p className="text-gray-600 mt-2">Complete your booking in a few simple steps</p>
         </div>
-
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-600">Step {currentStep} of 3</span>
             <span className="text-sm text-gray-600">{Math.round((currentStep / 3) * 100)}% Complete</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / 3) * 100}%` }}
             ></div>
           </div>
         </div>
-
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}

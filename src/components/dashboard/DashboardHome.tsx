@@ -4,7 +4,6 @@ import {
   Users, 
   DollarSign, 
   Ticket, 
-  TrendingUp, 
   AlertCircle,
   Clock,
   MapPin,
@@ -12,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
-import { Train as TrainType, Booking, User, Analytics } from '../../types';
+import { Train as TrainType, Booking } from '../../types';
 import { Base_URL } from '../../config';
 
 const DashboardHome: React.FC = () => {

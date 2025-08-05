@@ -23,7 +23,7 @@ export const addSchedule = async (scheduleData: any) => {
 
 export const updateSchedule = async (scheduleId: string, scheduleData: any) => {
   try {
-    const response = await axios.put(`${Base_URL}/schedule/update/${scheduleId}`, scheduleData);
+    const response = await axios.put(`${Base_URL}/schedule/update`, scheduleData);
     return response.data;
   } catch (error) {
     console.error('Error updating schedule:', error);

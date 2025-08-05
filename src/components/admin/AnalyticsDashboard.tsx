@@ -12,13 +12,13 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+// import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { Booking, Train as TrainType, User, Driver, Route } from '../../types';
 import { Base_URL } from '../../config';
 
 const AnalyticsDashboard: React.FC = () => {
-  const { user } = useAuth();
+  //const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [trains, setTrains] = useState<TrainType[]>([]);
   const [users, setUsers] = useState<User[]>([]);

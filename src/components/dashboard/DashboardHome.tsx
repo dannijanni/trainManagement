@@ -7,11 +7,13 @@ import {
   TrendingUp, 
   AlertCircle,
   Clock,
-  MapPin
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import LocalStorageManager from '../../utils/localStorage';
+import axios from 'axios';
 import { Train as TrainType, Booking, User, Analytics } from '../../types';
+import { Base_URL } from '../../config';
 
 const DashboardHome: React.FC = () => {
   const { user } = useAuth();
@@ -25,47 +27,168 @@ const DashboardHome: React.FC = () => {
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [upcomingTrains, setUpcomingTrains] = useState<TrainType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadDashboardData();
   }, [user]);
 
-  const loadDashboardData = () => {
-    const trains = LocalStorageManager.getTrains();
-    const bookings = LocalStorageManager.getBookings();
-    const users = LocalStorageManager.getUsers();
-    const analytics = LocalStorageManager.getAnalytics();
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
 
-    if (user?.role === 'customer') {
-      const myBookings = bookings.filter(b => b.userId === user.id);
-      const upcomingTrains = trains.filter(t => t.status === 'active').slice(0, 3);
-      
-      setStats({
-        trains: trains.length,
-        bookings: bookings.length,
-        users: users.length,
-        revenue: analytics.totalRevenue,
-        myBookings: myBookings.length,
-        upcomingTrains: upcomingTrains.length
-      });
-      setRecentBookings(myBookings.slice(-3));
-      setUpcomingTrains(upcomingTrains);
-    } else {
-      const totalRevenue = bookings
-        .filter(b => b.status === 'confirmed')
-        .reduce((sum, b) => sum + b.totalAmount, 0);
-      
-      setStats({
-        trains: trains.length,
-        bookings: bookings.length,
-        users: users.length,
-        revenue: totalRevenue,
-        myBookings: 0,
-        upcomingTrains: 0
-      });
-      setRecentBookings(bookings.slice(-5));
-      setUpcomingTrains(trains.filter(t => t.status === 'active').slice(0, 5));
+      // Fetch all necessary data in parallel
+      const [trainsResponse, bookingsResponse, usersResponse] = await Promise.all([
+        axios.get(`${Base_URL}/train/all`),
+        axios.get(`${Base_URL}/booking/GetAllbookings`),
+        axios.get(`${Base_URL}/user/getAllUsers`)
+      ]);
+
+      const trains = trainsResponse.data.$values || [];
+      const bookings = bookingsResponse.data.$values || [];
+      const users = usersResponse.data.$values || [];
+
+      if (user?.role === 'customer') {
+        const myBookings = bookings.filter((b: Booking) => b.userId === user.id);
+        const upcomingTrains = trains
+          .filter((t: TrainType) => t.status === 'active')
+          .slice(0, 3);
+        
+        setStats({
+          trains: trains.length,
+          bookings: bookings.length,
+          users: users.length,
+          revenue: myBookings
+            .filter((b: Booking) => b.status === 'confirmed')
+            .reduce((sum: number, b: Booking) => sum + b.totalAmount, 0),
+          myBookings: myBookings.length,
+          upcomingTrains: upcomingTrains.length
+        });
+        
+        setRecentBookings(
+          myBookings
+            .slice(-3)
+            .map(formatBooking)
+        );
+        
+        setUpcomingTrains(upcomingTrains.map(formatTrain));
+      } else {
+        const totalRevenue = bookings
+          .filter((b: Booking) => b.status === 'confirmed')
+          .reduce((sum: number, b: Booking) => sum + b.totalAmount, 0);
+        
+        setStats({
+          trains: trains.length,
+          bookings: bookings.length,
+          users: users.length,
+          revenue: totalRevenue,
+          myBookings: 0,
+          upcomingTrains: 0
+        });
+        
+        setRecentBookings(
+          bookings
+            .slice(-5)
+            .map(formatBooking)
+        );
+        
+        setUpcomingTrains(
+          trains
+            .filter((t: TrainType) => t.status === 'active')
+            .slice(0, 5)
+            .map(formatTrain)
+        );
+      }
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const formatBooking = (booking: any): Booking => ({
+    id: booking.id,
+    trainId: booking.trainId,
+    userId: booking.userId,
+    passengerDetails: booking.passengers?.$values?.map((p: any) => ({
+      name: p.name,
+      age: p.age,
+      gender: p.gender,
+      email: p.email,
+      phone: p.phone
+    })) || [],
+    seats: booking.bookingSeats?.$values?.map((s: any) => ({
+      class: s.class,
+      seatNumber: s.seatNumber,
+      price: s.price
+    })) || [],
+    totalAmount: booking.totalAmount,
+    status: booking.status,
+    paymentStatus: booking.paymentStatus,
+    paymentMethod: booking.paymentMethod,
+    bookingDate: booking.bookingDate,
+    travelDate: booking.travelDate,
+    qrCode: booking.qrcode,
+    cancellationReason: booking.cancellationReason,
+    cancellationDate: booking.cancellationDate,
+    refundAmount: booking.refundAmount,
+    refundStatus: booking.refundStatus,
+    createdBy: booking.createdBy,
+    notes: booking.notes,
+    isAdminBooking: booking.isAdminBooking,
+    passengers: undefined,
+    bookingSeats: undefined
+  });
+
+  const formatTrain = (train: any): TrainType => ({
+  id: train.id,
+  name: train.name,
+  number: train.number,
+  route: {
+    from: train.routeFrom,
+    to: train.routeTo,
+    via: typeof train.trainRouteVia === 'string' ? train.trainRouteVia.split(',') : []
+  },
+  schedule: {
+    departure: train.schedules?.$values?.[0]?.departureTime || '',
+    arrival: train.schedules?.$values?.[0]?.arrivalTime || '',
+    duration: calculateDuration(
+      train.schedules?.$values?.[0]?.departureTime,
+      train.schedules?.$values?.[0]?.arrivalTime
+    )
+  },
+  classes: Object.fromEntries(
+    train.trainClasses?.$values?.map((c: any) => [
+      c.className,
+      {
+        totalSeats: c.totalSeats,
+        availableSeats: c.availableSeats,
+        price: c.price
+      }
+    ]) || []
+  ),
+  status: train.status,
+  amenities: typeof train.amenities === 'string' ? train.amenities.split(',') : [],
+  createdAt: train.createdAt,
+  updatedAt: train.updatedAt,
+  routeFrom: undefined,
+  routeTo: undefined,
+  trainRouteVia: undefined,
+  schedules: undefined,
+  trainClasses: undefined
+});
+
+  const calculateDuration = (departure: string, arrival: string) => {
+    if (!departure || !arrival) return '';
+    const dep = new Date(`2000-01-01T${departure}`);
+    const arr = new Date(`2000-01-01T${arrival}`);
+    const diff = arr.getTime() - dep.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
   };
 
   const getWelcomeMessage = () => {
@@ -107,6 +230,34 @@ const DashboardHome: React.FC = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 text-blue-500 animate-spin mx-auto" />
+          <p className="mt-2 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button 
+            onClick={loadDashboardData}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (user?.role === 'customer') {
     return (
@@ -153,7 +304,7 @@ const DashboardHome: React.FC = () => {
                     <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">Booking #{booking.id.slice(0, 8)}</p>
-                        <p className="text-sm text-gray-600">{booking.travelDate}</p>
+                        <p className="text-sm text-gray-600">{new Date(booking.travelDate).toLocaleDateString()}</p>
                       </div>
                       <div className="text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
@@ -241,7 +392,7 @@ const DashboardHome: React.FC = () => {
                     <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">Booking #{booking.id.slice(0, 8)}</p>
-                        <p className="text-sm text-gray-600">{booking.travelDate}</p>
+                        <p className="text-sm text-gray-600">{new Date(booking.travelDate).toLocaleDateString()}</p>
                       </div>
                       <div className="text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
@@ -274,7 +425,9 @@ const DashboardHome: React.FC = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Last Updated</span>
-                <span className="text-sm font-medium text-gray-900">Just now</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {new Date().toLocaleTimeString()}
+                </span>
               </div>
             </div>
           </div>

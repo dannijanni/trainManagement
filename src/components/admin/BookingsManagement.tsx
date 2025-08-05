@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 import { Booking, Train, User } from '../../types';
+import { Base_URL } from '../../config';
 
 const BookingsManagement: React.FC = () => {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ const BookingsManagement: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const response = await axios.get('http://localhost:5049/api/booking/GetAllbookings');
+      const response = await axios.get(`${Base_URL}/booking/GetAllbookings`);
       const formattedBookings = response.data.$values.map((booking: any) => ({
         id: booking.id,
         trainId: booking.trainId,
@@ -170,7 +171,7 @@ const BookingsManagement: React.FC = () => {
       
       // First, make the DELETE request to cancel the booking
       const response = await axios.delete(
-        `http://localhost:5049/api/booking/${cancellingBooking.id}`
+        `${Base_URL}/booking/${cancellingBooking.id}`
       );
 
       if (response.data === 'Booking cancelled') {

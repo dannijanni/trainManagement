@@ -160,7 +160,12 @@ namespace train_management_system.DAL.Company
                 {
                     throw new Exception("User not found.");
                 }
-                 
+
+                // Remove related UserActivity entries first
+                var userActivities = _companyDbContext.UserActivities
+                                       .Where(ua => ua.UserId == userId);
+                _companyDbContext.UserActivities.RemoveRange(userActivities);
+
                 _companyDbContext.Users.Remove(user);
                 _companyDbContext.SaveChanges();
             }
@@ -169,6 +174,7 @@ namespace train_management_system.DAL.Company
                 throw new Exception("An error occurred while deleting the user.", ex);
             }
         }
+
 
         //Get All User
         public List<User> GetAllUsers()
@@ -231,21 +237,21 @@ namespace train_management_system.DAL.Company
             try
             {
                 // 1. Create Route
-                var route = new train_management_system.Models.Company.Route
-                {
-                    Id = Guid.NewGuid(),
-                    Name = $"{request.RouteFrom} - {request.RouteTo}", // Required
-                    RouteFrom = request.RouteFrom,                     // Required
-                    RouteTo = request.RouteTo,                         // Required
-                    Distance = 0,                                      // Can replace with actual distance logic
-                    EstimatedDuration = request.Duration,
-                    IsActive = true,                                   // Required
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
+                //var route = new train_management_system.Models.Company.Route
+                //{
+                //    Id = Guid.NewGuid(),
+                //    Name = $"{request.RouteFrom} - {request.RouteTo}", // Required
+                //    RouteFrom = request.RouteFrom,                     // Required
+                //    RouteTo = request.RouteTo,                         // Required
+                //    Distance = 0,                                      // Can replace with actual distance logic
+                //    EstimatedDuration = request.Duration,
+                //    IsActive = true,                                   // Required
+                //    CreatedAt = DateTime.UtcNow,
+                //    UpdatedAt = DateTime.UtcNow
+                //};
 
-                _companyDbContext.Routes.Add(route);
-                await _companyDbContext.SaveChangesAsync();
+                //_companyDbContext.Routes.Add(route);
+                //await _companyDbContext.SaveChangesAsync();
 
                 // 2. Create Train
                 var train = new Train
@@ -292,7 +298,7 @@ namespace train_management_system.DAL.Company
                 {
                     Id = Guid.NewGuid(),
                     TrainId = train.Id,
-                    RouteId = route.Id, // ✅ correct FK now
+                    RouteId = request.RouteId,
                     DepartureTime = TimeOnly.Parse(request.DepartureTime),
                     ArrivalTime = TimeOnly.Parse(request.ArrivalTime),
                     Date = DateOnly.FromDateTime(DateTime.UtcNow),
@@ -748,6 +754,14 @@ namespace train_management_system.DAL.Company
         #region Bookinng
         public async Task<Guid> CreateBookingAsync(CreateBookingRequest request)
         {
+            // Parse BookingDate safely
+            if (!DateTime.TryParse(request.BookingDate, out var bookingDate))
+                throw new ArgumentException("Invalid or missing booking date.");
+
+            // Parse TravelDate safely
+            if (!DateOnly.TryParse(request.TravelDate, out var travelDate))
+                throw new ArgumentException("Invalid or missing travel date.");
+
             var booking = new Booking
             {
                 Id = Guid.NewGuid(),
@@ -758,8 +772,8 @@ namespace train_management_system.DAL.Company
                 PaymentStatus = request.PaymentStatus,
                 PaymentMethod = request.PaymentMethod,
                 PaymentId = request.PaymentId,
-                BookingDate = DateTime.Parse(request.BookingDate),
-                TravelDate = DateOnly.Parse(request.TravelDate),
+                BookingDate = bookingDate,
+                TravelDate = travelDate,
                 Qrcode = request.QrCode,
                 CreatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? null : Guid.Parse(request.CreatedBy),
                 Notes = request.Notes,
@@ -782,7 +796,7 @@ namespace train_management_system.DAL.Company
                 }).ToList()
             };
 
-            // Handle cash collection if manual
+            // Handle cash collection if payment is manual
             if (request.PaymentMethod == "manual" && request.PaymentDetails != null)
             {
                 var cashCollection = new CashCollection
@@ -811,6 +825,7 @@ namespace train_management_system.DAL.Company
             return booking.Id;
         }
 
+
         public async Task<Booking?> GetBookingByIdAsync(Guid bookingId)
         {
             return await _companyDbContext.Bookings
@@ -820,6 +835,17 @@ namespace train_management_system.DAL.Company
                 .Include(b => b.CashCollectionBookings)
                     .ThenInclude(ccb => ccb.CashCollection)
                 .FirstOrDefaultAsync(b => b.Id == bookingId);
+        }
+
+        public async Task<List<Booking>> GetAllBookingsAsync()
+        {
+            return await _companyDbContext.Bookings
+                .Include(b => b.BookingSeats)
+                .Include(b => b.Passengers)
+                .Include(b => b.Payments)
+                .Include(b => b.CashCollectionBookings)
+                    .ThenInclude(ccb => ccb.CashCollection)
+                .ToListAsync();
         }
 
         public async Task<bool> CancelBookingAsync(Guid bookingId)
@@ -854,6 +880,9 @@ namespace train_management_system.DAL.Company
 
             return payment;
         }
+
+
+
 
         public async Task<List<Payment>> GetPaymentsByBookingIdAsync(Guid bookingId)
         {
@@ -966,7 +995,7 @@ namespace train_management_system.DAL.Company
                 IpAddress = ipAddress
             };
 
-            await _dal.AddAsync(activity);
+            await _companyDbContext.AddAsync(activity);
         }
         #endregion
 

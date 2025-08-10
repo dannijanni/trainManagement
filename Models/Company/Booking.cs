@@ -43,7 +43,7 @@ public partial class Booking
 
     public string? SpecialBookingCode { get; set; }
 
-    public bool? IsAdminBooking { get; set; }
+    public bool? IsAdminBooking { get; set; }    
 
     public virtual ICollection<BookingSeat> BookingSeats { get; set; } = new List<BookingSeat>();
 

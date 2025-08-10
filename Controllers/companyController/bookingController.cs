@@ -36,5 +36,12 @@ namespace train_management_system.Controllers.companyController
             var success = await _companyDAL.CancelBookingAsync(id); // implement this
             return success ? Ok("Booking cancelled") : NotFound("Booking not found");
         }
+
+        [HttpGet("GetAllbookings")]
+        public async Task<IActionResult> GetAllBookings()
+        {
+            var result = await _companyDAL.GetAllBookingsAsync();
+            return Ok(result);
+        }
     }
 }

@@ -236,19 +236,19 @@ namespace train_management_system.DAL.Company
 
             try
             {
-                // 1. Create Route
-                //var route = new train_management_system.Models.Company.Route
-                //{
-                //    Id = Guid.NewGuid(),
-                //    Name = $"{request.RouteFrom} - {request.RouteTo}", // Required
-                //    RouteFrom = request.RouteFrom,                     // Required
-                //    RouteTo = request.RouteTo,                         // Required
-                //    Distance = 0,                                      // Can replace with actual distance logic
-                //    EstimatedDuration = request.Duration,
-                //    IsActive = true,                                   // Required
-                //    CreatedAt = DateTime.UtcNow,
-                //    UpdatedAt = DateTime.UtcNow
-                //};
+                //1.Create Route
+               var route = new train_management_system.Models.Company.Route
+               {
+                   Id = Guid.NewGuid(),
+                   Name = $"{request.RouteFrom} - {request.RouteTo}", // Required
+                   RouteFrom = request.RouteFrom,                     // Required
+                   RouteTo = request.RouteTo,                         // Required
+                   Distance = 0,                                      // Can replace with actual distance logic
+                   EstimatedDuration = request.Duration,
+                   IsActive = true,                                   // Required
+                   CreatedAt = DateTime.UtcNow,
+                   UpdatedAt = DateTime.UtcNow
+               };
 
                 //_companyDbContext.Routes.Add(route);
                 //await _companyDbContext.SaveChangesAsync();
@@ -298,7 +298,7 @@ namespace train_management_system.DAL.Company
                 {
                     Id = Guid.NewGuid(),
                     TrainId = train.Id,
-                    RouteId = request.RouteId,
+                    RouteId = route.Id,
                     DepartureTime = TimeOnly.Parse(request.DepartureTime),
                     ArrivalTime = TimeOnly.Parse(request.ArrivalTime),
                     Date = DateOnly.FromDateTime(DateTime.UtcNow),

@@ -4,7 +4,7 @@
     {
         public class AddTrainRequest
         {
-            public Guid RouteId { get; set; } // ✅ New
+            //public Guid RouteId { get; set; } // ✅ New
             public string Name { get; set; } = string.Empty;
             public string Number { get; set; } = string.Empty;
 

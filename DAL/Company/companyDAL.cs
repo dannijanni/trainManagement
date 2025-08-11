@@ -250,8 +250,8 @@ namespace train_management_system.DAL.Company
                    UpdatedAt = DateTime.UtcNow
                };
 
-                //_companyDbContext.Routes.Add(route);
-                //await _companyDbContext.SaveChangesAsync();
+                _companyDbContext.Routes.Add(route);
+                await _companyDbContext.SaveChangesAsync();
 
                 // 2. Create Train
                 var train = new Train

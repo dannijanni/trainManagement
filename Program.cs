@@ -5,7 +5,7 @@ using static train_management_system.DAL.Company.companyDAL;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -18,23 +18,20 @@ builder.Services.AddControllers()
 
 builder.Services.AddAuthorization();
 
-// Read DB connection info from environment variables (Railway)
-var dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? ".";
-var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "train_management";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPass = Environment.GetEnvironmentVariable("DB_PASS");
+// Build connection string from environment variables
+string dbServer = Environment.GetEnvironmentVariable("DB_SERVER") ?? ".";
+string dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "train_management";
+string dbUser = Environment.GetEnvironmentVariable("DB_USER");
+string dbPass = Environment.GetEnvironmentVariable("DB_PASS");
 
-// Build connection string
-var envConnectionString =
-    (!string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPass))
+string envConnectionString = (!string.IsNullOrEmpty(dbUser) && !string.IsNullOrEmpty(dbPass))
     ? $"Server={dbServer}; Database={dbName}; User ID={dbUser}; Password={dbPass}; TrustServerCertificate=True;"
     : null;
 
-// Use env var connection string if available, otherwise fallback to config
+// Register DbContext
 builder.Services.AddDbContext<CompanyContext>(options =>
 {
     var connectionString = envConnectionString ??
-                           AppConfiguration.ConnectionString ??
                            builder.Configuration.GetConnectionString("dbcs");
 
     if (!string.IsNullOrEmpty(connectionString))
@@ -43,12 +40,12 @@ builder.Services.AddDbContext<CompanyContext>(options =>
     }
 });
 
-// Configure CORS for development (allow all)
+// CORS setup
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCorsPolicy", policy =>
     {
-        policy.AllowAnyOrigin()    // For production, specify allowed origins instead
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -59,7 +56,7 @@ builder.Services.AddScoped<companyDAL>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Middleware
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();

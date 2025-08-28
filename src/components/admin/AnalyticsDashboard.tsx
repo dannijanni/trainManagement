@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  TrendingUp, 
-  DollarSign, 
+  TrendingUp,  
   Users, 
   Train,
   Calendar,

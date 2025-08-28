@@ -4,7 +4,23 @@ import { addDriver, updateDriver, deleteDriver, getDrivers } from '../../service
 import { useAuth } from '../../contexts/AuthContext';
 import LocalStorageManager from '../../utils/localStorage';
 import { Driver, Route, Schedule } from '../../types';
-import { Plus, Edit2, Trash2, Search, User, Star, Clock, MapPin, Phone, Mail, Calendar, Award, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
+  User,
+  Star,
+  Clock,
+  MapPin,
+  Phone,
+  Mail,
+  Calendar,
+  Award,
+  AlertCircle,
+  CheckCircle,
+  XCircle
+} from 'lucide-react';
 
 const DriverManagement: React.FC = () => {
   const { user } = useAuth();
@@ -15,7 +31,6 @@ const DriverManagement: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -38,49 +53,37 @@ const DriverManagement: React.FC = () => {
   }, [drivers, searchTerm, statusFilter, availabilityFilter]);
 
   const fetchDrivers = async () => {
-  try {
-    const response = await getDrivers();
-    // Extract the array of drivers from the response
-    const driversArray = response.$values || [];
-    setDrivers(driversArray);
-  } catch (error) {
-    console.error('Error fetching drivers:', error);
-    setDrivers([]);
-  }
-};
-
-
-useEffect(() => {
-  console.log('filteredDrivers:', filteredDrivers);
-}, [filteredDrivers]);
+    try {
+      const response = await getDrivers();
+      const driversArray = response.$values || [];
+      setDrivers(driversArray);
+    } catch (error) {
+      console.error('Error fetching drivers:', error);
+      setDrivers([]);
+    }
+  };
 
   const filterDrivers = () => {
-  let filtered = [...drivers]; // Ensure filtered is an array
-
-  if (searchTerm) {
-    filtered = filtered.filter(driver =>
-      driver.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
-
-  if (statusFilter !== 'all') {
-    filtered = filtered.filter(driver => driver.status === statusFilter);
-  }
-
-  if (availabilityFilter !== 'all') {
-    filtered = filtered.filter(driver => driver.availability === availabilityFilter);
-  }
-
-  setFilteredDrivers(filtered);
-};
-
+    let filtered = [...drivers];
+    if (searchTerm) {
+      filtered = filtered.filter(driver =>
+        driver.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(driver => driver.status === statusFilter);
+    }
+    if (availabilityFilter !== 'all') {
+      filtered = filtered.filter(driver => driver.availability === availabilityFilter);
+    }
+    setFilteredDrivers(filtered);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const driverData: Driver = {
       id: editingDriver?.id || Date.now().toString(),
       firstName: formData.firstName,
@@ -100,7 +103,6 @@ useEffect(() => {
       createdAt: editingDriver?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
     try {
       if (editingDriver) {
         await updateDriver(editingDriver.id, driverData);
@@ -136,7 +138,6 @@ useEffect(() => {
       alert('Only administrators can delete drivers');
       return;
     }
-
     if (confirm('Are you sure you want to delete this driver?')) {
       try {
         await deleteDriver(driverId);
@@ -288,13 +289,6 @@ useEffect(() => {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => setViewingDriver(driver)}
-                    className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    View
-                  </button>
                   <button
                     onClick={() => handleEdit(driver)}
                     className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

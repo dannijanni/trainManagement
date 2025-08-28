@@ -438,7 +438,7 @@ const BookingsManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${booking.totalAmount}
+                      £{booking.totalAmount}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
@@ -519,7 +519,7 @@ const BookingsManagement: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Total Amount</label>
-                      <p className="mt-1 text-sm font-semibold text-gray-900">${viewingBooking.totalAmount}</p>
+                      <p className="mt-1 text-sm font-semibold text-gray-900">£{viewingBooking.totalAmount}</p>
                     </div>
                   </div>
                   <div>
@@ -546,7 +546,7 @@ const BookingsManagement: React.FC = () => {
                     <div className="flex flex-wrap gap-2">
                       {viewingBooking.seats.map((seat, index) => (
                         <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                          {seat.seatNumber} ({seat.class}) - ${seat.price}
+                          {seat.seatNumber} ({seat.class}) - £{seat.price}
                         </span>
                       ))}
                     </div>
@@ -569,7 +569,7 @@ const BookingsManagement: React.FC = () => {
                 <div className="space-y-4">
                   <div className="bg-yellow-50 p-4 rounded-lg">
                     <p className="text-sm text-yellow-800">
-                      <strong>Original Amount:</strong> ${cancellingBooking.totalAmount}
+                      <strong>Original Amount:</strong> £{cancellingBooking.totalAmount}
                     </p>
                     <p className="text-sm text-yellow-800">
                       <strong>Travel Date:</strong> {new Date(cancellingBooking.travelDate).toLocaleDateString()}
@@ -590,7 +590,7 @@ const BookingsManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Refund Amount ($)
+                      Refund Amount (£)
                     </label>
                     <input
                       type="number"

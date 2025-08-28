@@ -94,6 +94,8 @@ const ScheduleManagement: React.FC = () => {
     e.preventDefault();
 
     const scheduleData = {
+      // Include the ID when editing
+      ...(editingSchedule && { id: editingSchedule.id }),
       routeId: formData.routeId,
       trainId: formData.trainId,
       driverId: formData.driverId || undefined,
@@ -107,7 +109,7 @@ const ScheduleManagement: React.FC = () => {
 
     try {
       if (editingSchedule) {
-        await updateSchedule(editingSchedule.id, scheduleData);
+        await updateSchedule(scheduleData);
       } else {
         await addSchedule(scheduleData);
       }

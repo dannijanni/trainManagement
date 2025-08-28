@@ -191,7 +191,7 @@ const BookingsManagement: React.FC = () => {
             : booking
         );
 
-        setBookings(updatedBookings);
+        setBookings(updatedBookings as Booking[]);
         resetCancelModal();
         
         // Hide success message after 3 seconds
@@ -225,7 +225,7 @@ const BookingsManagement: React.FC = () => {
           : booking
       );
 
-      setBookings(updatedBookings);
+      setBookings(updatedBookings as Booking[]);
       setSuccessMessage('Refund processed successfully');
       
       // Hide success message after 3 seconds

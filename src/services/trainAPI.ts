@@ -22,9 +22,9 @@ export const addTrain = async (trainData: any) => {
   }
 };
 
-export const updateTrain = async (trainId: string, trainData: any) => {
+export const updateTrain = async (trainData: any) => {
   try {
-    const response = await axios.put(`${Base_URL}/train/update/${trainId}`, trainData);
+    const response = await axios.put(`${Base_URL}/train/update/`, trainData);
     return response.data;
   } catch (error) {
     console.error('Error updating train:', error);

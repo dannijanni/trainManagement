@@ -168,7 +168,9 @@ const AdminBookingForm: React.FC<AdminBookingFormProps> = ({
         createdBy: user?.id,
         notes: paymentDetails.notes,
         isAdminBooking: true,
-        specialBookingCode: paymentMethod === 'deferred' ? 'DEF_' + Date.now() : undefined
+        specialBookingCode: paymentMethod === 'deferred' ? 'DEF_' + Date.now() : undefined,
+        passengers: undefined,
+        bookingSeats: undefined
       };
 
       // Save booking

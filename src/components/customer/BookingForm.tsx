@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 import {
-  User,
-  Mail,
-  Phone,
   CreditCard,
   Calendar,
   ArrowLeft,
-  CheckCircle,
   AlertCircle,
   MapPin,
   Train

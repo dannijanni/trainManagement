@@ -34,13 +34,16 @@ export const updateTrain = async (trainData: any) => {
 
 export const deleteTrain = async (trainId: string) => {
   try {
-    const response = await axios.delete(`${Base_URL}/train/delete/${trainId}`);
+    const response = await axios.delete(`${Base_URL}/train/delete`, {
+      params: { id: trainId }   // 👈 send as query parameter
+    });
     return response.data;
   } catch (error) {
     console.error('Error deleting train:', error);
     throw error;
   }
 };
+
 
 export const getAllRoutes = async () => {
   try {

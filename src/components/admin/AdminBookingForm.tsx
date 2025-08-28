@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, 
-  Mail, 
-  Phone, 
   CreditCard, 
-  Calendar,
   ArrowLeft,
   CheckCircle,
   AlertCircle,
@@ -276,7 +272,7 @@ const AdminBookingForm: React.FC<AdminBookingFormProps> = ({
                   <div className="text-left">
                     <p className="font-medium text-gray-900">{className}</p>
                     <p className="text-sm text-gray-600">{classData.availableSeats} seats available</p>
-                    <p className="text-lg font-bold text-blue-600">${classData.price}</p>
+                    <p className="text-lg font-bold text-blue-600">£{classData.price}</p>
                   </div>
                 </button>
               ))}
@@ -517,7 +513,7 @@ const AdminBookingForm: React.FC<AdminBookingFormProps> = ({
             </div>
             <div className="flex justify-between font-semibold text-lg pt-2 border-t">
               <span>Total:</span>
-              <span>${totalAmount}</span>
+              <span>£{totalAmount}</span>
             </div>
           </div>
         </div>

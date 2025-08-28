@@ -219,12 +219,12 @@ const RoutesManagement: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{route.distance} km</span>
+                    <span className="text-sm text-gray-600">{route.distance} miles</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">
-                      From ${Math.min(...Object.values(route.pricing))}
+                      From £{Math.min(...Object.values(route.pricing))}
                     </span>
                   </div>
                 </div>
@@ -248,7 +248,7 @@ const RoutesManagement: React.FC = () => {
                     {Object.entries(route.pricing).map(([className, price]) => (
                       <div key={className} className="flex justify-between text-sm">
                         <span className="text-gray-600">{className}:</span>
-                        <span className="font-medium">${price}</span>
+                        <span className="font-medium">£{price}</span>
                       </div>
                     ))}
                   </div>
@@ -354,7 +354,7 @@ const RoutesManagement: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Distance (km)
+                      Distance (miles)
                     </label>
                     <input
                       type="number"
@@ -383,7 +383,7 @@ const RoutesManagement: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Class Price ($)
+                      First Class Price (£)
                     </label>
                     <input
                       type="number"
@@ -396,7 +396,7 @@ const RoutesManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Business Class Price ($)
+                      Business Class Price (£)
                     </label>
                     <input
                       type="number"
@@ -409,7 +409,7 @@ const RoutesManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Economy Class Price ($)
+                      Economy Class Price (£)
                     </label>
                     <input
                       type="number"

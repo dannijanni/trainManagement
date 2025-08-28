@@ -7,7 +7,8 @@ import {
   AlertCircle,
   Clock,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  PoundSterling
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
@@ -309,7 +310,7 @@ const DashboardHome: React.FC = () => {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
-                        <p className="text-sm font-medium text-gray-900 mt-1">${booking.totalAmount}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">£{booking.totalAmount}</p>
                       </div>
                     </div>
                   ))
@@ -375,8 +376,8 @@ const DashboardHome: React.FC = () => {
           />
           <StatsCard
             title="Total Revenue"
-            value={`$${stats.revenue.toLocaleString()}`}
-            icon={DollarSign}
+            value={`£${stats.revenue.toLocaleString()}`}
+            icon={PoundSterling}
             color="bg-orange-500"
           />
         </div>
@@ -397,7 +398,7 @@ const DashboardHome: React.FC = () => {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
                           {booking.status}
                         </span>
-                        <p className="text-sm font-medium text-gray-900 mt-1">${booking.totalAmount}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">£{booking.totalAmount}</p>
                       </div>
                     </div>
                   ))

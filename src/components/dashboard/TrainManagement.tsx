@@ -482,7 +482,7 @@ const TrainManagement: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Class Price ($)
+                      First Class Price (£)
                     </label>
                     <input
                       type="number"
@@ -494,7 +494,7 @@ const TrainManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Business Class Price ($)
+                      Business Class Price (£)
                     </label>
                     <input
                       type="number"
@@ -506,7 +506,7 @@ const TrainManagement: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Economy Class Price ($)
+                      Economy Class Price (£)
                     </label>
                     <input
                       type="number"

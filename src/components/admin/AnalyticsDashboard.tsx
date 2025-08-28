@@ -10,7 +10,8 @@ import {
   Star,
   Download,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  PoundSterling
 } from 'lucide-react';
 // import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
@@ -521,13 +522,13 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">${analytics.totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">£{analytics.totalRevenue.toLocaleString()}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Online: ${analytics.onlineRevenue.toLocaleString()} | 
-                  Manual: ${analytics.manualRevenue.toLocaleString()}
+                  Online: £{analytics.onlineRevenue.toLocaleString()} | 
+                  Manual: £{analytics.manualRevenue.toLocaleString()}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <PoundSterling className="h-8 w-8 text-green-600" />
             </div>
           </div>
 
@@ -582,7 +583,7 @@ const AnalyticsDashboard: React.FC = () => {
                     <p className="text-sm text-gray-600">{route.bookings} bookings</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">${route.revenue.toLocaleString()}</p>
+                    <p className="font-semibold text-gray-900">£{route.revenue.toLocaleString()}</p>
                     <p className="text-sm text-gray-600">Revenue</p>
                   </div>
                 </div>
@@ -687,7 +688,7 @@ const AnalyticsDashboard: React.FC = () => {
                 <div key={index} className="p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-medium text-gray-900">{route.route}</p>
-                    <span className="text-sm font-semibold text-gray-900">${route.revenue.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-gray-900">£{route.revenue.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 rounded-full h-2">

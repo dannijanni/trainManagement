@@ -6,11 +6,7 @@ import {
   Trash2,
   Search,
   User as UserIcon,
-  Shield,
   ShieldCheck,
-  ShieldX,
-  ToggleLeft,
-  ToggleRight,
   Download
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -35,7 +31,7 @@ const UserManagement: React.FC = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    role: 'customer' as 'admin' | 'manager' | 'staff' | 'customer',
+    role: 'customer' as User['role'],
     department: '',
     employeeId: '',
     isActive: true
@@ -83,7 +79,6 @@ const UserManagement: React.FC = () => {
     try {
       if (editingUser) {
         await updateUser(editingUser.id, formData);
-        console.log('User updated successfully: ', formData);
       } else {
         await createUser(formData);
       }
@@ -117,12 +112,10 @@ const UserManagement: React.FC = () => {
       alert('Only administrators can delete users');
       return;
     }
-
     if (userId === currentUser?.id) {
       alert('You cannot delete your own account');
       return;
     }
-
     if (confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteUser(userId);
@@ -154,8 +147,6 @@ const UserManagement: React.FC = () => {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin': return <ShieldCheck className="h-4 w-4 text-red-500" />;
-      case 'manager': return <Shield className="h-4 w-4 text-blue-500" />;
-      case 'staff': return <UserIcon className="h-4 w-4 text-green-500" />;
       case 'customer': return <UserIcon className="h-4 w-4 text-gray-500" />;
       default: return <UserIcon className="h-4 w-4 text-gray-500" />;
     }
@@ -164,8 +155,6 @@ const UserManagement: React.FC = () => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
-      case 'manager': return 'bg-blue-100 text-blue-800';
-      case 'staff': return 'bg-green-100 text-green-800';
       case 'customer': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -173,14 +162,13 @@ const UserManagement: React.FC = () => {
 
   const exportUsers = () => {
     const csvContent = [
-      ['Username', 'Email', 'Name', 'Role', 'Department', 'Status', 'Created'].join(','),
+      ['Username', 'Email', 'Name', 'Role', 'Department', 'Created'].join(','),
       ...filteredUsers.map(user => [
         user.username,
         user.email,
         `${user.firstName} ${user.lastName}`,
         user.role,
         user.department || '',
-        user.isActive ? 'Active' : 'Inactive',
         new Date(user.createdAt).toLocaleDateString()
       ].join(','))
     ].join('\n');
@@ -198,39 +186,16 @@ const UserManagement: React.FC = () => {
       alert('You cannot deactivate your own account');
       return;
     }
-
     try {
       const updatedUsers = users.map(user =>
         user.id === userId ? { ...user, isActive: !user.isActive } : user
       );
-
       await axios.put(`${Base_URL}/user/updateUser?id=${userId}`, {
         isActive: !users.find(user => user.id === userId)?.isActive
       });
-
       setUsers(updatedUsers);
-      const user = users.find(u => u.id === userId);
-      console.log(`${user?.isActive ? 'Deactivated' : 'Activated'} user: ${user?.username}`);
     } catch (error) {
       console.error('Error toggling user status:', error);
-    }
-  };
-
-  const resetPassword = async (userId: string) => {
-    const newPassword = 'temp123';
-    try {
-      await axios.post(`${Base_URL}/user/resetPassword`, {
-        userId,
-        password: newPassword
-      });
-
-      const updatedUsers = users.map(user =>
-        user.id === userId ? { ...user, password: newPassword } : user
-      );
-      setUsers(updatedUsers);
-      alert(`Password reset to: ${newPassword}`);
-    } catch (error) {
-      console.error('Error resetting password:', error);
     }
   };
 
@@ -263,8 +228,6 @@ const UserManagement: React.FC = () => {
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
-                <option value="manager">Manager</option>
-                <option value="staff">Staff</option>
                 <option value="customer">Customer</option>
               </select>
               <select
@@ -306,7 +269,6 @@ const UserManagement: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -334,19 +296,6 @@ const UserManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.department || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => toggleUserStatus(user.id)}
-                        disabled={user.id === currentUser?.id}
-                        className="flex items-center"
-                      >
-                        {user.isActive ? (
-                          <ToggleRight className="h-6 w-6 text-green-500" />
-                        ) : (
-                          <ToggleLeft className="h-6 w-6 text-gray-400" />
-                        )}
-                      </button>
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
                     </td>
@@ -357,13 +306,6 @@ const UserManagement: React.FC = () => {
                           className="text-indigo-600 hover:text-indigo-900"
                         >
                           <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => resetPassword(user.id)}
-                          className="text-yellow-600 hover:text-yellow-900"
-                          title="Reset Password"
-                        >
-                          <ShieldX className="h-4 w-4" />
                         </button>
                         {currentUser?.role === 'admin' && user.id !== currentUser?.id && (
                           <button
@@ -467,12 +409,10 @@ const UserManagement: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                     <select
                       value={formData.role}
-                      onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as any }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as User['role'] }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="customer">Customer</option>
-                      <option value="staff">Staff</option>
-                      <option value="manager">Manager</option>
                       {currentUser?.role === 'admin' && (
                         <option value="admin">Admin</option>
                       )}

@@ -33,7 +33,7 @@ export const updateSchedule = async (scheduleData: any) => {
 
 export const deleteSchedule = async (scheduleId: string) => {
   try {
-    const response = await axios.delete(`${Base_URL}/schedule/delete/${scheduleId}`);
+    const response = await axios.delete(`${Base_URL}/schedule/${scheduleId}`);
     return response.data;
   } catch (error) {
     console.error('Error deleting schedule:', error);

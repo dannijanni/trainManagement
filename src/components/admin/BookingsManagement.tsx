@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, 
-  Filter, 
-  Plus, 
-  Edit2, 
-  Trash2, 
   Download, 
   CheckCircle,
   XCircle,

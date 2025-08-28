@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Train, 
-  MapPin, 
-  Clock, 
-  Users, 
-  CreditCard,
-  Download,
-  RefreshCw,
+import {
+  Calendar,
+  Train,
+  MapPin,
+  Clock,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -16,6 +12,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import LocalStorageManager from '../../utils/localStorage';
 import { Booking, Train as TrainType } from '../../types';
+import axios from 'axios';
+import { Base_URL } from '../../config';
 
 const MyBookings: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +25,7 @@ const MyBookings: React.FC = () => {
   const [cancellingBooking, setCancellingBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadBookings();
@@ -36,27 +35,80 @@ const MyBookings: React.FC = () => {
     filterBookings();
   }, [bookings, statusFilter]);
 
-  const loadBookings = () => {
+  const loadBookings = async () => {
     if (!user) return;
-    
-    const allBookings = LocalStorageManager.getBookings();
-    const allTrains = LocalStorageManager.getTrains();
-    
-    const userBookings = allBookings.filter(booking => booking.userId === user.id);
-    setBookings(userBookings);
-    setTrains(allTrains);
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${Base_URL}/booking/GetUserbookingById?id=${user.id}`);
+      const apiBookings = response.data;
+
+      const bookingsArray = Array.isArray(apiBookings) ? apiBookings : [apiBookings];
+
+      const mappedBookings: Booking[] = bookingsArray.map((booking: any) => {
+        const passengers = booking.passengers?.$values || [];
+        const passengerDetails = passengers.map((passenger: any) => ({
+          name: passenger.name,
+          age: passenger.age,
+          gender: passenger.gender,
+          email: passenger.email,
+          phone: passenger.phone,
+        }));
+
+        const bookingSeats = booking.bookingSeats?.$values || [];
+        const seats = bookingSeats.map((seat: any) => ({
+          class: seat.class || "unknown",
+          seatNumber: seat.seatNumber,
+          price: seat.price,
+        }));
+
+        return {
+          id: booking.id,
+          trainId: booking.trainId,
+          userId: booking.userId,
+          passengerDetails,
+          passengers: booking.passengers,
+          seats,
+          bookingSeats: booking.bookingSeats,
+          totalAmount: booking.totalAmount,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          paymentMethod: booking.paymentMethod,
+          paymentId: booking.paymentId,
+          bookingDate: booking.bookingDate,
+          travelDate: booking.travelDate,
+          qrCode: booking.qrcode,
+          cancellationReason: booking.cancellationReason,
+          cancellationDate: booking.cancellationDate,
+          refundAmount: booking.refundAmount,
+          refundStatus: booking.refundStatus,
+          refundProcessedBy: booking.refundProcessedBy,
+          createdBy: booking.createdBy,
+          notes: booking.notes,
+          specialBookingCode: booking.specialBookingCode,
+          isAdminBooking: booking.isAdminBooking,
+        };
+      });
+
+      const allTrains = LocalStorageManager.getTrains();
+      setBookings(mappedBookings);
+      setTrains(allTrains);
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error);
+      const allBookings = LocalStorageManager.getBookings();
+      const userBookings = allBookings.filter((booking) => booking.userId === user.id);
+      setBookings(userBookings);
+      setTrains(LocalStorageManager.getTrains());
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filterBookings = () => {
-    let filtered = bookings;
-
+    let filtered = [...bookings];
     if (statusFilter !== 'all') {
       filtered = filtered.filter(booking => booking.status === statusFilter);
     }
-
-    // Sort by booking date (newest first)
     filtered.sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime());
-
     setFilteredBookings(filtered);
   };
 
@@ -88,13 +140,10 @@ const MyBookings: React.FC = () => {
     if (booking.status === 'cancelled' || booking.status === 'completed') {
       return false;
     }
-    
-    const travelDate = new Date(booking.travelDate);
+    const bookingDate = new Date(booking.bookingDate);
     const now = new Date();
-    const hoursUntilTravel = (travelDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
-    // Can cancel if more than 2 hours before travel
-    return hoursUntilTravel > 2;
+    const minutesSinceBooking = (now.getTime() - bookingDate.getTime()) / (1000 * 60);
+    return minutesSinceBooking <= 50;
   };
 
   const handleCancelBooking = (booking: Booking) => {
@@ -104,15 +153,13 @@ const MyBookings: React.FC = () => {
 
   const processCancellation = () => {
     if (!cancellingBooking || !cancelReason.trim()) return;
-
     const settings = LocalStorageManager.getSystemSettings();
     const refundPercentage = settings.bookingRules.refundPercentage;
     const refundAmount = (cancellingBooking.totalAmount * refundPercentage) / 100;
-
     const updatedBookings = bookings.map(booking =>
-      booking.id === cancellingBooking.id 
-        ? { 
-            ...booking, 
+      booking.id === cancellingBooking.id
+        ? {
+            ...booking,
             status: 'cancelled' as const,
             cancellationReason: cancelReason,
             cancellationDate: new Date().toISOString(),
@@ -121,19 +168,14 @@ const MyBookings: React.FC = () => {
           }
         : booking
     );
-    
     setBookings(updatedBookings);
-    
-    // Update in localStorage
     const allBookings = LocalStorageManager.getBookings();
     const updatedAllBookings = allBookings.map(booking =>
-      booking.id === cancellingBooking.id 
+      booking.id === cancellingBooking.id
         ? updatedBookings.find(b => b.id === booking.id) || booking
         : booking
     );
     LocalStorageManager.saveBookings(updatedAllBookings);
-    
-    // Update train seat availability
     const trains = LocalStorageManager.getTrains();
     const trainIndex = trains.findIndex(t => t.id === cancellingBooking.trainId);
     if (trainIndex !== -1) {
@@ -144,7 +186,6 @@ const MyBookings: React.FC = () => {
       });
       LocalStorageManager.saveTrains(trains);
     }
-    
     resetCancelModal();
   };
 
@@ -155,7 +196,6 @@ const MyBookings: React.FC = () => {
   };
 
   const downloadTicket = (booking: Booking) => {
-    // This would integrate with the existing ticket download functionality
     console.log('Download ticket for booking:', booking.id);
   };
 
@@ -167,7 +207,12 @@ const MyBookings: React.FC = () => {
           <p className="text-gray-600 mt-2">View and manage your train reservations</p>
         </div>
 
-        {/* Filter Bar */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium text-gray-700">Filter by status:</label>
@@ -185,7 +230,6 @@ const MyBookings: React.FC = () => {
           </div>
         </div>
 
-        {/* Bookings List */}
         <div className="space-y-4">
           {filteredBookings.length > 0 ? (
             filteredBookings.map((booking) => {
@@ -284,7 +328,7 @@ const MyBookings: React.FC = () => {
                         </p>
                         {booking.refundAmount && (
                           <p className="text-sm text-red-800 mt-1">
-                            <strong>Refund Amount:</strong> ${booking.refundAmount} 
+                            <strong>Refund Amount:</strong> ${booking.refundAmount}
                             <span className="ml-2 text-xs">({booking.refundStatus})</span>
                           </p>
                         )}
@@ -299,8 +343,7 @@ const MyBookings: React.FC = () => {
                         <Eye className="h-4 w-4" />
                         View Details
                       </button>
-                      
-                      {booking.status === 'confirmed' && (
+                      {/* {booking.status === 'confirmed' && (
                         <button
                           onClick={() => downloadTicket(booking)}
                           className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -309,7 +352,6 @@ const MyBookings: React.FC = () => {
                           Download Ticket
                         </button>
                       )}
-                      
                       {canCancelBooking(booking) && (
                         <button
                           onClick={() => handleCancelBooking(booking)}
@@ -318,25 +360,26 @@ const MyBookings: React.FC = () => {
                           <RefreshCw className="h-4 w-4" />
                           Cancel Booking
                         </button>
-                      )}
+                      )} */}
                     </div>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No bookings found</p>
-              <p className="text-sm text-gray-400 mt-2">
-                {statusFilter !== 'all' ? 'Try changing the filter' : 'Start by searching for trains'}
-              </p>
-            </div>
+            !isLoading && (
+              <div className="text-center py-12">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No bookings found</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  {statusFilter !== 'all' ? 'Try changing the filter' : 'Start by searching for trains'}
+                </p>
+              </div>
+            )
           )}
         </div>
       </div>
 
-      {/* Cancellation Modal */}
       {showCancelModal && cancellingBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -344,7 +387,6 @@ const MyBookings: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Cancel Booking
               </h2>
-              
               <div className="space-y-4">
                 <div className="bg-yellow-50 p-4 rounded-lg">
                   <p className="text-sm text-yellow-800">
@@ -357,7 +399,6 @@ const MyBookings: React.FC = () => {
                     <strong>Refund:</strong> ${((cancellingBooking.totalAmount * 80) / 100).toFixed(2)} (80%)
                   </p>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Reason for Cancellation
@@ -371,14 +412,12 @@ const MyBookings: React.FC = () => {
                     placeholder="Please provide a reason for cancellation..."
                   />
                 </div>
-
                 <div className="bg-red-50 p-4 rounded-lg">
                   <p className="text-sm text-red-800">
                     This action cannot be undone. Your booking will be cancelled and a refund will be processed according to our cancellation policy.
                   </p>
                 </div>
               </div>
-
               <div className="flex justify-end gap-3 pt-6">
                 <button
                   onClick={resetCancelModal}
@@ -399,7 +438,6 @@ const MyBookings: React.FC = () => {
         </div>
       )}
 
-      {/* View Booking Modal */}
       {viewingBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -415,7 +453,6 @@ const MyBookings: React.FC = () => {
                   <XCircle className="h-6 w-6" />
                 </button>
               </div>
-
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -432,7 +469,6 @@ const MyBookings: React.FC = () => {
                     <p className="mt-1 text-lg font-semibold text-gray-900">${viewingBooking.totalAmount}</p>
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">Passengers</label>
                   <div className="space-y-2">
@@ -452,7 +488,6 @@ const MyBookings: React.FC = () => {
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">Seats</label>
                   <div className="flex flex-wrap gap-2">
@@ -463,7 +498,6 @@ const MyBookings: React.FC = () => {
                     ))}
                   </div>
                 </div>
-
                 {viewingBooking.paymentDetails && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Details</label>

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using train_management_system.DTO;
 using train_management_system.Models.Company;
 using train_management_system.Utils;
 using static train_management_system.DTO.bookingDTO;
@@ -837,6 +838,17 @@ namespace train_management_system.DAL.Company
                 .FirstOrDefaultAsync(b => b.Id == bookingId);
         }
 
+        public async Task<Booking?> GetBookingByUserIdAsync(Guid UserId)
+        {
+            return await _companyDbContext.Bookings
+                .Include(b => b.BookingSeats)
+                .Include(b => b.Passengers)
+                .Include(b => b.Payments)
+                .Include(b => b.CashCollectionBookings)
+                    .ThenInclude(ccb => ccb.CashCollection)
+                .FirstOrDefaultAsync(b => b.UserId == UserId);
+        }
+
         public async Task<List<Booking>> GetAllBookingsAsync()
         {
             return await _companyDbContext.Bookings
@@ -865,6 +877,100 @@ namespace train_management_system.DAL.Company
             await _companyDbContext.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> UpdateBookingAsync(Guid bookingId, bookingDTO.CreateBookingRequest request)
+        {
+            var booking = await _companyDbContext.Bookings
+                .Include(b => b.Passengers)
+                .Include(b => b.BookingSeats)
+                .Include(b => b.CashCollectionBookings)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                throw new KeyNotFoundException("Booking not found.");
+
+            // Update basic fields
+            booking.TrainId = request.TrainId;
+            booking.UserId = request.UserId;
+            booking.TotalAmount = request.TotalAmount;
+            booking.Status = request.Status;
+            booking.PaymentStatus = request.PaymentStatus;
+            booking.PaymentMethod = request.PaymentMethod;
+            booking.PaymentId = request.PaymentId;
+            booking.Qrcode = request.QrCode;
+            booking.CreatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? null : Guid.Parse(request.CreatedBy);
+            booking.Notes = request.Notes;
+            booking.SpecialBookingCode = request.SpecialBookingCode;
+            booking.IsAdminBooking = request.IsAdminBooking;
+
+            // Parse BookingDate safely
+            if (!string.IsNullOrWhiteSpace(request.BookingDate) &&
+                DateTime.TryParse(request.BookingDate, out var bookingDate))
+            {
+                booking.BookingDate = bookingDate;
+            }
+
+            // Parse TravelDate safely
+            if (!string.IsNullOrWhiteSpace(request.TravelDate) &&
+                DateOnly.TryParse(request.TravelDate, out var travelDate))
+            {
+                booking.TravelDate = travelDate;
+            }
+
+            // Update passengers (remove old, add new)
+            booking.Passengers.Clear();
+            foreach (var p in request.PassengerDetails)
+            {
+                booking.Passengers.Add(new Passenger
+                {
+                    Name = p.Name,
+                    Age = p.Age,
+                    Gender = p.Gender,
+                    Email = p.Email,
+                    Phone = p.Phone
+                });
+            }
+
+            // Update seats (remove old, add new)
+            booking.BookingSeats.Clear();
+            foreach (var s in request.Seats)
+            {
+                booking.BookingSeats.Add(new BookingSeat
+                {
+                    Class = s.Class,
+                    SeatNumber = s.SeatNumber,
+                    Price = s.Price
+                });
+            }
+
+            // Handle cash collection if payment is manual
+            if (request.PaymentMethod == "manual" && request.PaymentDetails != null)
+            {
+                var cashCollection = new CashCollection
+                {
+                    Id = Guid.NewGuid(),
+                    Date = DateOnly.FromDateTime(DateTime.Now),
+                    CashierName = request.PaymentDetails.CashierName,
+                    CounterLocation = request.PaymentDetails.CounterLocation,
+                    TotalAmount = request.TotalAmount,
+                    StartTime = TimeOnly.FromDateTime(DateTime.Now),
+                    Notes = request.PaymentDetails.DeferralReason
+                };
+
+                var cashBooking = new CashCollectionBooking
+                {
+                    BookingId = booking.Id,
+                    CashCollectionId = cashCollection.Id
+                };
+
+                booking.CashCollectionBookings.Add(cashBooking);
+                _companyDbContext.CashCollections.Add(cashCollection);
+            }
+
+            await _companyDbContext.SaveChangesAsync();
+            return true;
+        }
+
 
 
         #endregion

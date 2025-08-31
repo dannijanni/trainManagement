@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using train_management_system.DAL.Company;
+using train_management_system.DTO;
 using static train_management_system.DTO.bookingDTO;
 
 namespace train_management_system.Controllers.companyController
@@ -30,7 +31,15 @@ namespace train_management_system.Controllers.companyController
             return Ok(booking);
         }
 
-        [HttpDelete("{id}")]
+        [HttpGet("GetUserbookingById")]
+        public async Task<IActionResult> GetBookingByUserId(Guid id)
+        {
+            var booking = await _companyDAL.GetBookingByUserIdAsync(id); // you'll implement this
+            if (booking == null) return NotFound("Booking not found");
+            return Ok(booking);
+        }
+
+        [HttpPatch("{id}")]
         public async Task<IActionResult> CancelBooking(Guid id)
         {
             var success = await _companyDAL.CancelBookingAsync(id); // implement this
@@ -42,6 +51,23 @@ namespace train_management_system.Controllers.companyController
         {
             var result = await _companyDAL.GetAllBookingsAsync();
             return Ok(result);
+        }
+
+        [HttpPut("updateByID")]
+        public async Task<IActionResult> UpdateBooking(Guid id, [FromBody] bookingDTO.CreateBookingRequest request)
+        {
+            try
+            {
+                var success = await _companyDAL.UpdateBookingAsync(id, request);
+                if (!success)
+                    return NotFound(new { Message = "Booking not found." });
+
+                return Ok(new { Message = "Booking updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
         }
     }
 }

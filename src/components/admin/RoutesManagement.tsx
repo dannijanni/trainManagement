@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, MapPin, DollarSign, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, MapPin, Clock, ToggleLeft, ToggleRight, PoundSterling } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllRoutes, addRoute, updateRoute, deleteRoute } from '../../services/routeAPI';
 import { Route } from '../../types';
@@ -222,7 +222,7 @@ const RoutesManagement: React.FC = () => {
                     <span className="text-sm text-gray-600">{route.distance} miles</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-400" />
+                    <PoundSterling className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">
                       From £{Math.min(...Object.values(route.pricing))}
                     </span>

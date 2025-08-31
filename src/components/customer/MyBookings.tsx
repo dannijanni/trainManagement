@@ -255,7 +255,7 @@ const MyBookings: React.FC = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-900">${booking.totalAmount}</p>
+                        <p className="text-2xl font-bold text-gray-900">£{booking.totalAmount}</p>
                         <p className="text-sm text-gray-600">{booking.seats.length} passenger(s)</p>
                       </div>
                     </div>
@@ -328,7 +328,7 @@ const MyBookings: React.FC = () => {
                         </p>
                         {booking.refundAmount && (
                           <p className="text-sm text-red-800 mt-1">
-                            <strong>Refund Amount:</strong> ${booking.refundAmount}
+                            <strong>Refund Amount:</strong> £{booking.refundAmount}
                             <span className="ml-2 text-xs">({booking.refundStatus})</span>
                           </p>
                         )}
@@ -393,10 +393,10 @@ const MyBookings: React.FC = () => {
                     <strong>Booking:</strong> #{cancellingBooking.id.slice(0, 8)}
                   </p>
                   <p className="text-sm text-yellow-800">
-                    <strong>Amount:</strong> ${cancellingBooking.totalAmount}
+                    <strong>Amount:</strong> £{cancellingBooking.totalAmount}
                   </p>
                   <p className="text-sm text-yellow-800">
-                    <strong>Refund:</strong> ${((cancellingBooking.totalAmount * 80) / 100).toFixed(2)} (80%)
+                    <strong>Refund:</strong> £{((cancellingBooking.totalAmount * 80) / 100).toFixed(2)} (80%)
                   </p>
                 </div>
                 <div>
@@ -466,7 +466,7 @@ const MyBookings: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Total Amount</label>
-                    <p className="mt-1 text-lg font-semibold text-gray-900">${viewingBooking.totalAmount}</p>
+                    <p className="mt-1 text-lg font-semibold text-gray-900">£{viewingBooking.totalAmount}</p>
                   </div>
                 </div>
                 <div>

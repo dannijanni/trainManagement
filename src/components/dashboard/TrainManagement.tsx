@@ -1,6 +1,6 @@
 // src/components/TrainManagement.tsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, Train as TrainIcon, MapPin, Clock, DollarSign, Users, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Train as TrainIcon, MapPin, Clock,  Users, AlertCircle, CheckCircle, XCircle, PoundSterling } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllTrains, addTrain, updateTrain, deleteTrain, getAllRoutes } from '../../services/trainAPI';
 import { Train as TrainType, Route } from '../../types';
@@ -279,7 +279,7 @@ const TrainManagement: React.FC = () => {
                     <span className="text-sm text-gray-600">{train.schedules?.$values?.[0]?.departureTime} - {train.schedules?.$values?.[0]?.arrivalTime}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-400" />
+                    <PoundSterling className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">
                       From ${Math.min(...train.trainClasses?.$values?.map((c: { price: any; }) => c.price) || [0])}
                     </span>

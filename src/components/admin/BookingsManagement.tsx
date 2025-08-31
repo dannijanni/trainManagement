@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Download, 
+import {
+  Search,
+  Download,
   CheckCircle,
   XCircle,
   Clock,
   AlertCircle,
   Eye,
-  MoreHorizontal,
   RefreshCw,
-  DollarSign
+  Edit2,
+  PoundSterling
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
-import { Booking, Train, User } from '../../types';
+import { Booking} from '../../types';
 import { Base_URL } from '../../config';
 
 const BookingsManagement: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +31,8 @@ const BookingsManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -55,12 +56,12 @@ const BookingsManagement: React.FC = () => {
           age: passenger.age,
           gender: passenger.gender,
           email: passenger.email,
-          phone: passenger.phone
+          phone: passenger.phone,
         })),
         seats: booking.bookingSeats.$values.map((seat: any) => ({
           class: seat.class,
           seatNumber: seat.seatNumber,
-          price: seat.price
+          price: seat.price,
         })),
         totalAmount: booking.totalAmount,
         status: booking.status,
@@ -78,7 +79,7 @@ const BookingsManagement: React.FC = () => {
         createdBy: booking.createdBy,
         notes: booking.notes,
         specialBookingCode: booking.specialBookingCode,
-        isAdminBooking: booking.isAdminBooking
+        isAdminBooking: booking.isAdminBooking,
       }));
       setBookings(formattedBookings);
       setLoading(false);
@@ -92,19 +93,19 @@ const BookingsManagement: React.FC = () => {
   const filterBookings = () => {
     let filtered = bookings;
     if (searchTerm) {
-      filtered = filtered.filter(booking =>
+      filtered = filtered.filter((booking) =>
         booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.passengerDetails.some(p => 
+        booking.passengerDetails.some((p) =>
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.email.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
     }
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(booking => booking.status === statusFilter);
+      filtered = filtered.filter((booking) => booking.status === statusFilter);
     }
     if (dateFilter) {
-      filtered = filtered.filter(booking => 
+      filtered = filtered.filter((booking) =>
         booking.travelDate.startsWith(dateFilter)
       );
     }
@@ -113,44 +114,56 @@ const BookingsManagement: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'confirmed': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'cancelled': return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'waitlisted': return <AlertCircle className="h-4 w-4 text-blue-500" />;
-      case 'completed': return <CheckCircle className="h-4 w-4 text-gray-500" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-500" />;
+      case 'confirmed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'waitlisted':
+        return <AlertCircle className="h-4 w-4 text-blue-500" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-gray-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'waitlisted': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'confirmed':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'waitlisted':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const handleSelectBooking = (bookingId: string) => {
-    setSelectedBookings(prev => 
-      prev.includes(bookingId) 
-        ? prev.filter(id => id !== bookingId)
+    setSelectedBookings((prev) =>
+      prev.includes(bookingId)
+        ? prev.filter((id) => id !== bookingId)
         : [...prev, bookingId]
     );
   };
 
   const handleSelectAll = () => {
     setSelectedBookings(
-      selectedBookings.length === filteredBookings.length 
-        ? [] 
-        : filteredBookings.map(b => b.id)
+      selectedBookings.length === filteredBookings.length
+        ? []
+        : filteredBookings.map((b) => b.id)
     );
   };
 
   const handleCancelBooking = (bookingId: string) => {
-    const booking = bookings.find(b => b.id === bookingId);
+    const booking = bookings.find((b) => b.id === bookingId);
     if (booking) {
       setCancellingBooking(booking);
       setRefundAmount(booking.totalAmount.toString());
@@ -160,21 +173,15 @@ const BookingsManagement: React.FC = () => {
 
   const processCancellation = async () => {
     if (!cancellingBooking) return;
-    
     try {
       setLoading(true);
       setError('');
-      
-      // First, make the DELETE request to cancel the booking
-      const response = await axios.delete(
+      const response = await axios.patch(
         `${Base_URL}/booking/${cancellingBooking.id}`
       );
-
-      if (response.data === 'Booking cancelled') {
+      if (response.status === 200) {
         setSuccessMessage('Booking cancelled successfully');
-        
-        // Then update the booking locally with cancellation details
-        const updatedBookings = bookings.map(booking => 
+        const updatedBookings = bookings.map((booking) =>
           booking.id === cancellingBooking.id
             ? {
                 ...booking,
@@ -182,15 +189,12 @@ const BookingsManagement: React.FC = () => {
                 cancellationReason: cancelReason,
                 cancellationDate: new Date().toISOString(),
                 refundAmount: parseFloat(refundAmount),
-                refundStatus: 'pending' as 'pending' | 'processed' | 'failed' | undefined
+                refundStatus: 'pending' as 'pending' | 'processed' | 'failed' | undefined,
               }
             : booking
         );
-
         setBookings(updatedBookings as Booking[]);
         resetCancelModal();
-        
-        // Hide success message after 3 seconds
         setTimeout(() => setSuccessMessage(''), 3000);
       }
     } catch (err) {
@@ -212,19 +216,13 @@ const BookingsManagement: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
-      // This would be a PUT request to your refund endpoint
-      // For now, we'll just update the local state
-      const updatedBookings = bookings.map(booking => 
+      const updatedBookings = bookings.map((booking) =>
         booking.id === bookingId
           ? { ...booking, refundStatus: 'processed' }
           : booking
       );
-
       setBookings(updatedBookings as Booking[]);
       setSuccessMessage('Refund processed successfully');
-      
-      // Hide success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Error processing refund:', err);
@@ -234,17 +232,77 @@ const BookingsManagement: React.FC = () => {
     }
   };
 
+  const handleEditBooking = (booking: Booking) => {
+    setEditingBooking(booking);
+    setShowEditModal(true);
+  };
+
+  const processEdit = async () => {
+    if (!editingBooking) return;
+    try {
+      setLoading(true);
+      setError('');
+
+      const payload = {
+        trainId: editingBooking.trainId,
+        userId: editingBooking.userId,
+        passengerDetails: editingBooking.passengerDetails,
+        seats: editingBooking.seats,
+        totalAmount: editingBooking.totalAmount,
+        status: editingBooking.status,
+        paymentStatus: editingBooking.paymentStatus,
+        paymentMethod: editingBooking.paymentMethod,
+        paymentDetails: {
+          method: editingBooking.paymentMethod,
+          transactionId: editingBooking.paymentId,
+          cashierName: "",
+          counterLocation: "",
+          deferralReason: "",
+          paymentDeadline: "",
+        },
+        paymentId: editingBooking.paymentId,
+        bookingDate: editingBooking.bookingDate,
+        travelDate: editingBooking.travelDate,
+        qrCode: editingBooking.qrCode,
+        createdBy: editingBooking.createdBy,
+        notes: editingBooking.notes,
+        specialBookingCode: editingBooking.specialBookingCode,
+        isAdminBooking: editingBooking.isAdminBooking,
+      };
+
+      const response = await axios.put(
+        `http://localhost:5049/api/booking/updateByID?id=${editingBooking.id}`,
+        payload
+      );
+
+      if (response.status === 200) {
+        const updatedBookings = bookings.map((booking) =>
+          booking.id === editingBooking.id ? { ...editingBooking, ...response.data } : booking
+        );
+        setBookings(updatedBookings as Booking[]);
+        setSuccessMessage('Booking updated successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        setShowEditModal(false);
+      }
+    } catch (err) {
+      console.error('Error editing booking:', err);
+      setError('Failed to update booking');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const exportBookings = () => {
     const csvContent = [
       ['Booking ID', 'Train ID', 'Passenger', 'Travel Date', 'Status', 'Amount'].join(','),
-      ...filteredBookings.map(booking => [
+      ...filteredBookings.map((booking) => [
         booking.id,
         booking.trainId,
         booking.passengerDetails[0]?.name || '',
         booking.travelDate,
         booking.status,
-        booking.totalAmount
-      ].join(','))
+        booking.totalAmount,
+      ].join(',')),
     ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -255,7 +313,7 @@ const BookingsManagement: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  if (loading && !showCancelModal) {
+  if (loading && !showCancelModal && !showEditModal) {
     return (
       <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -272,7 +330,7 @@ const BookingsManagement: React.FC = () => {
         <div className="text-center">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
           <p className="mt-2 text-gray-600">{error}</p>
-          <button 
+          <button
             onClick={fetchBookings}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
@@ -290,22 +348,19 @@ const BookingsManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Bookings Management</h1>
           <p className="text-gray-600 mt-2">Manage all customer bookings and reservations</p>
         </div>
-        
-        {/* Success Message */}
+
         {successMessage && (
           <div className="mb-6 p-4 bg-green-100 text-green-800 rounded-lg">
             {successMessage}
           </div>
         )}
-        
-        {/* Error Message */}
+
         {error && (
           <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
             {error}
           </div>
         )}
 
-        {/* Search and Filter Bar */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex-1 max-w-md">
@@ -320,7 +375,7 @@ const BookingsManagement: React.FC = () => {
                 />
               </div>
             </div>
-                        
+
             <div className="flex gap-3 flex-wrap">
               <select
                 value={statusFilter}
@@ -334,14 +389,14 @@ const BookingsManagement: React.FC = () => {
                 <option value="waitlisted">Waitlisted</option>
                 <option value="completed">Completed</option>
               </select>
-                            
+
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-                            
+
               <button
                 onClick={exportBookings}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -352,8 +407,7 @@ const BookingsManagement: React.FC = () => {
             </div>
           </div>
         </div>
-        
-        {/* Bookings Table */}
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -444,6 +498,13 @@ const BookingsManagement: React.FC = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
+                        <button
+                          onClick={() => handleEditBooking(booking)}
+                          className="text-yellow-600 hover:text-yellow-900"
+                          title="Edit Booking"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
                         {booking.status !== 'cancelled' && (
                           <button
                             onClick={() => handleCancelBooking(booking.id)}
@@ -458,7 +519,7 @@ const BookingsManagement: React.FC = () => {
                             className="text-green-600 hover:text-green-900"
                             title="Process Refund"
                           >
-                            <DollarSign className="h-4 w-4" />
+                            <PoundSterling className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -475,8 +536,7 @@ const BookingsManagement: React.FC = () => {
             </div>
           )}
         </div>
-        
-        {/* View Booking Modal */}
+
         {viewingBooking && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -552,8 +612,7 @@ const BookingsManagement: React.FC = () => {
             </div>
           </div>
         )}
-        
-        {/* Cancellation Modal */}
+
         {showCancelModal && cancellingBooking && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -561,7 +620,7 @@ const BookingsManagement: React.FC = () => {
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
                   Cancel Booking #{cancellingBooking.id.slice(0, 8)}
                 </h2>
-                                
+
                 <div className="space-y-4">
                   <div className="bg-yellow-50 p-4 rounded-lg">
                     <p className="text-sm text-yellow-800">
@@ -620,6 +679,337 @@ const BookingsManagement: React.FC = () => {
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {loading ? 'Processing...' : 'Confirm Cancellation'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showEditModal && editingBooking && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  Edit Booking #{editingBooking.id.slice(0, 8)}
+                </h2>
+                <div className="space-y-6">
+                  {/* Train ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Train ID
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBooking.trainId}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, trainId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* User ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      User ID
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBooking.userId}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, userId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Travel Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Travel Date
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={editingBooking.travelDate.replace(' ', 'T')}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, travelDate: e.target.value.replace('T', ' ') })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={editingBooking.status}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, status: e.target.value as Booking['status'] })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="confirmed">Confirmed</option>
+                      <option value="pending">Pending</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="waitlisted">Waitlisted</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+
+                  {/* Total Amount */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Total Amount
+                    </label>
+                    <input
+                      type="number"
+                      value={editingBooking.totalAmount}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, totalAmount: parseFloat(e.target.value) })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Passenger Details */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Passenger Details
+                    </label>
+                    {editingBooking.passengerDetails.map((passenger, index) => (
+                      <div key={index} className="p-4 mb-4 border border-gray-200 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              value={passenger.name}
+                              onChange={(e) => {
+                                const updatedPassengers = [...editingBooking.passengerDetails];
+                                updatedPassengers[index].name = e.target.value;
+                                setEditingBooking({ ...editingBooking, passengerDetails: updatedPassengers });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Age
+                            </label>
+                            <input
+                              type="number"
+                              value={passenger.age}
+                              onChange={(e) => {
+                                const updatedPassengers = [...editingBooking.passengerDetails];
+                                updatedPassengers[index].age = parseInt(e.target.value);
+                                setEditingBooking({ ...editingBooking, passengerDetails: updatedPassengers });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Gender
+                            </label>
+                            <input
+                              type="text"
+                              value={passenger.gender}
+                              onChange={(e) => {
+                                const updatedPassengers = [...editingBooking.passengerDetails];
+                                updatedPassengers[index].gender = e.target.value as 'male' | 'female' | 'other';
+                                setEditingBooking({ ...editingBooking, passengerDetails: updatedPassengers });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              value={passenger.email}
+                              onChange={(e) => {
+                                const updatedPassengers = [...editingBooking.passengerDetails];
+                                updatedPassengers[index].email = e.target.value;
+                                setEditingBooking({ ...editingBooking, passengerDetails: updatedPassengers });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Phone
+                            </label>
+                            <input
+                              type="text"
+                              value={passenger.phone}
+                              onChange={(e) => {
+                                const updatedPassengers = [...editingBooking.passengerDetails];
+                                updatedPassengers[index].phone = e.target.value;
+                                setEditingBooking({ ...editingBooking, passengerDetails: updatedPassengers });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Seats */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Seats
+                    </label>
+                    {editingBooking.seats.map((seat, index) => (
+                      <div key={index} className="p-4 mb-4 border border-gray-200 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Seat Number
+                            </label>
+                            <input
+                              type="text"
+                              value={seat.seatNumber}
+                              onChange={(e) => {
+                                const updatedSeats = [...editingBooking.seats];
+                                updatedSeats[index].seatNumber = e.target.value;
+                                setEditingBooking({ ...editingBooking, seats: updatedSeats });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Class
+                            </label>
+                            <input
+                              type="text"
+                              value={seat.class}
+                              onChange={(e) => {
+                                const updatedSeats = [...editingBooking.seats];
+                                updatedSeats[index].class = e.target.value;
+                                setEditingBooking({ ...editingBooking, seats: updatedSeats });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Price
+                            </label>
+                            <input
+                              type="number"
+                              value={seat.price}
+                              onChange={(e) => {
+                                const updatedSeats = [...editingBooking.seats];
+                                updatedSeats[index].price = parseFloat(e.target.value);
+                                setEditingBooking({ ...editingBooking, seats: updatedSeats });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment Method
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBooking.paymentMethod}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, paymentMethod: e.target.value as Booking['paymentMethod'] })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Payment ID */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment ID
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBooking.paymentId}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, paymentId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Notes
+                    </label>
+                    <textarea
+                      value={editingBooking.notes || ''}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, notes: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      placeholder="Additional notes..."
+                    />
+                  </div>
+
+                  {/* Special Booking Code */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Special Booking Code
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBooking.specialBookingCode || ''}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, specialBookingCode: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Is Admin Booking */}
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={editingBooking.isAdminBooking}
+                      onChange={(e) =>
+                        setEditingBooking({ ...editingBooking, isAdminBooking: e.target.checked })
+                      }
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-2 block text-sm font-medium text-gray-700">
+                      Is Admin Booking
+                    </label>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-6">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    disabled={loading}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={processEdit}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>

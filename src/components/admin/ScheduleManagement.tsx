@@ -6,8 +6,6 @@ import {
   Search,
   Calendar,
   Clock,
-  Train,
-  User,
   AlertCircle,
   CheckCircle,
   XCircle

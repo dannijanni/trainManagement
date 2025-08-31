@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CreditCard, 
-  DollarSign, 
+  CreditCard,  
   Clock, 
   CheckCircle, 
   XCircle,
   AlertCircle,
   Search,
-  Filter,
-  Download,
   Plus,
   Receipt,
-  Wallet,
-  Building,
-  User
+  PoundSterling
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import LocalStorageManager from '../../utils/localStorage';
@@ -208,7 +203,7 @@ const PaymentManagement: React.FC = () => {
       case 'online': return <CreditCard className="h-4 w-4 text-blue-500" />;
       case 'manual': return <Receipt className="h-4 w-4 text-green-500" />;
       case 'deferred': return <Clock className="h-4 w-4 text-yellow-500" />;
-      default: return <DollarSign className="h-4 w-4 text-gray-500" />;
+      default: return <PoundSterling className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -312,7 +307,7 @@ const PaymentManagement: React.FC = () => {
                   ${(totalOnlineRevenue + totalManualRevenue).toLocaleString()}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-gray-600" />
+              <PoundSterling className="h-8 w-8 text-gray-600" />
             </div>
           </div>
         </div>

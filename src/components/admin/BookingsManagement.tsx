@@ -271,7 +271,7 @@ const BookingsManagement: React.FC = () => {
       };
 
       const response = await axios.put(
-        `http://localhost:5049/api/booking/updateByID?id=${editingBooking.id}`,
+        `${Base_URL}/booking/updateByID?id=${editingBooking.id}`,
         payload
       );
 
